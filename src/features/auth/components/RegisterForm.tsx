@@ -134,7 +134,7 @@ export function RegisterForm() {
   };
 
   return (
-    <div className="auth-card shadow-card flex flex-col gap-7 w-full sm:w-[420px] min-h-[530px] sm:min-h-[480px]">
+    <div className="auth-card shadow-card flex flex-col gap-7 w-full sm:w-[420px] h-auto min-h-[480px]">
       <AuthCardHeader
         header="Create account"
         description="Fill in your credentials to create an account"
@@ -302,6 +302,16 @@ export function RegisterForm() {
                   ? "Updating cart"
                   : "Create account"}
             </Button>
+          </div>
+          <div className="mt-8 text-center text-sm text-body-passive">
+            Already have an account?{" "}
+            <button
+              type="button"
+              onClick={() => router.push("/login")}
+              className="text-primary font-semibold hover:underline cursor-pointer"
+            >
+              Log in
+            </button>
           </div>
         </form>
       </FieldSet>

@@ -135,7 +135,7 @@ export function LoginForm({
   };
 
   return (
-    <div className="auth-card shadow-card flex flex-col gap-7 aspect-370/530 sm:aspect-420/530 min-h-[530px] sm:min-h-[480px] max-h-[680px]">
+    <div className="auth-card shadow-card flex flex-col gap-7 h-auto min-h-[480px]">
       <AuthCardHeader
         header="Login"
         description="Log in with your credentials."
@@ -233,6 +233,19 @@ export function LoginForm({
                   ? "Updating cart..."
                   : "Login"}
             </Button>
+          </div>
+          <div className="mt-8 text-center text-sm text-body-passive">
+            Don&apos;t have an account?{" "}
+            <button
+              type="button"
+              onClick={() => {
+                if (isCustom) handleCustomAction?.();
+                router.push("/register");
+              }}
+              className="text-primary font-semibold hover:underline cursor-pointer"
+            >
+              Sign up
+            </button>
           </div>
         </form>
       </FieldSet>

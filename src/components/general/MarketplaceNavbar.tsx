@@ -9,7 +9,7 @@ import { RootState } from "@/redux/store";
 import { logout } from "@/redux/slices/authSlice";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ShoppingCart, LogOut, User } from "lucide-react";
+import { ShoppingCart, Menu } from "lucide-react";
 import Cookies from "js-cookie";
 import { cn, truncateText } from "@/lib/utils";
 import DashboardDrawer from "@/components/general/DashboardDrawer";
@@ -31,7 +31,7 @@ import CategoriesDropdown from "@/features/marketplace/components/CategoriesDrop
 
 const links = [
   // { label: "Shop by categories", href: "/marketplace" },
-  { label: "Contact us", href: "/contact" },
+  { label: "Contact us", href: "https://www.jooav.com/contact-us" },
 ];
 
 export default function MarketplaceNavbar() {
@@ -52,6 +52,7 @@ export default function MarketplaceNavbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [openLoginForm, setOpenLoginForm] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { mutateAsync: updateDraftOrder, isPending: updating } =
     useUpdateDraftOrder();
 
@@ -109,7 +110,7 @@ export default function MarketplaceNavbar() {
   return (
     <>
       <header className="w-full sticky top-0 z-40 bg-white ">
-        <div className="flex items-center justify-between h-18">
+        <div className="flex items-center justify-between h-18 px-4 md:px-lg lg:px-main">
           <div className="flex items-center gap-lg">
             {/* Logo */}
             <Link href="/marketplace" className="shrink-0">
@@ -123,7 +124,7 @@ export default function MarketplaceNavbar() {
             </Link>
 
             {/* nav */}
-            <nav className="hidden smd:flex items-center gap-2 text-sm font-medium text-foreground">
+            <nav className="hidden lg:flex items-center gap-2 text-sm font-medium text-foreground">
               <CategoriesDropdown />
               {links.map((link, i) => (
                 <Link
@@ -140,7 +141,7 @@ export default function MarketplaceNavbar() {
           </div>
 
           {/* Right side */}
-          <div className="flex items-center gap-lg">
+          <div className="flex items-center gap-4 md:gap-lg shrink-0">
             {/* Cart icon — opens CartDrawer */}
             <button
               onClick={() => {
@@ -162,10 +163,37 @@ export default function MarketplaceNavbar() {
             </button>
 
             {isAuthenticated && user ? (
-              /* Authenticated avatar + dropdown */
-              <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
-                <DropdownMenuTrigger asChild>
-                  <div className="cursor-pointer flex items-center rounded-full hover:bg-gray-100 px-2 py-1 transition-colors">
+              /* Authenticated avatar + dropdown (desktop only) */
+              <div className="flex items-center gap-2">
+                <DropdownMenu
+                  open={dropdownOpen}
+                  onOpenChange={setDropdownOpen}
+                >
+                  <DropdownMenuTrigger asChild className="hidden lg:flex">
+                    <div className="cursor-pointer flex items-center rounded-full hover:bg-gray-100 px-2 py-1 transition-colors outline-none">
+                      <Avatar className="size-6">
+                        {user.avatar && (
+                          <AvatarImage
+                            src={user.avatar}
+                            alt={user.firstName ?? ""}
+                          />
+                        )}
+                        <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+                          {(user.firstName?.[0] ?? "") +
+                            (user.lastName?.[0] ?? "")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="hidden sm:block text-sm font-medium max-w-[100px] p-sm">
+                        {truncateText(user.firstName, 10)}
+                      </span>
+                    </div>
+                  </DropdownMenuTrigger>
+
+                  {/* Avatar for Tablet/Mobile — triggers Mobile Menu */}
+                  <div 
+                    onClick={() => setMenuOpen(true)}
+                    className="flex lg:hidden items-center rounded-full px-2 py-1 cursor-pointer"
+                  >
                     <Avatar className="size-6">
                       {user.avatar && (
                         <AvatarImage
@@ -178,39 +206,37 @@ export default function MarketplaceNavbar() {
                           (user.lastName?.[0] ?? "")}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="hidden sm:block text-sm font-medium max-w-[100px] p-sm">
-                      {truncateText(user.firstName, 10)}
-                    </span>
-                    {/* <ChevronDown className="h-4 w-4 text-muted-foreground" /> */}
                   </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="flex flex-col gap-5 p-sm! rounded-lg! max-h-90 w-[208px] overflow-y-auto user-dropdown"
-                >
-                  <p className="py-5 px-3 tracking-[0.08em] text-body-passive font-mono leading-[1.2] text-xs font-normal">
-                    OTHERS
-                  </p>
-                  {options?.map((o, i) => (
-                    <DropdownMenuItem
-                      key={i}
-                      className={cn(
-                        "rounded-md py-5 px-sm h-[22px] cursor-pointer transition-colors text-body-passive hover:bg-storey-foreground select-option",
-                      )}
-                      onClick={() => o.action?.()}
-                    >
-                      <div className="flex items-center gap-5">
-                        <span className="text-[14px] font-medium text-body leading-[1.5] tracking-[0.04em]">
-                          {o.label}
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+
+                  <DropdownMenuContent
+                    align="end"
+                    sideOffset={8}
+                    className="flex flex-col gap-5 p-sm! rounded-lg! max-h-90 w-[208px] overflow-y-auto user-dropdown"
+                  >
+                    <p className="py-5 px-3 tracking-[0.08em] text-body-passive font-mono leading-[1.2] text-xs font-normal">
+                      OTHERS
+                    </p>
+                    {options?.map((o, i) => (
+                      <DropdownMenuItem
+                        key={i}
+                        className={cn(
+                          "rounded-md py-5 px-sm h-[22px] cursor-pointer transition-colors text-body-passive hover:bg-storey-foreground select-option",
+                        )}
+                        onClick={() => o.action?.()}
+                      >
+                        <div className="flex items-center gap-5">
+                          <span className="text-[14px] font-medium text-body leading-[1.5] tracking-[0.04em]">
+                            {o.label}
+                          </span>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ) : (
               /* Unauthenticated CTA buttons */
-              <div className="flex items-center gap-6">
+              <div className="hidden lg:flex items-center gap-6">
                 <DropdownMenu
                   open={openLoginForm}
                   onOpenChange={setOpenLoginForm}
@@ -239,9 +265,107 @@ export default function MarketplaceNavbar() {
                 </Button>
               </div>
             )}
+
+            {/* Hamburger for mobile — moved to the end */}
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="lg:hidden cursor-pointer p-2 flex justify-center items-center rounded-full hover:bg-storey-foreground transition-colors"
+              aria-label="Open menu"
+            >
+              <Menu className="h-6 w-6 text-outline" />
+            </button>
           </div>
         </div>
       </header>
+
+      {/* Mobile Menu Drawer */}
+      <DashboardDrawer
+        openDrawer={setMenuOpen}
+        isOpen={menuOpen}
+        showHeader={false}
+        temporaryFooter={
+          <div className="flex flex-col gap-main w-full">
+            <Button
+              variant="neutral"
+              className="w-full gap-4 text-body tracking-[0.02em]"
+              onClick={() => setMenuOpen(false)}
+            >
+              Close Menu
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-6 p-main">
+          <div className="flex items-center justify-between pb-4 border-b">
+            <h3 className="text-lg font-bold">Menu</h3>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-mono text-body-passive uppercase tracking-widest pb-2">
+              Navigation
+            </p>
+            <CategoriesDropdown />
+            {links.map((link, i) => (
+              <Link
+                key={i}
+                href={link.href}
+                onClick={() => setMenuOpen(false)}
+                className="hover:text-primary transition-colors py-3 px-2 text-base font-medium text-body border-b border-border-main last:border-0"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+
+          {!isAuthenticated && (
+            <div className="flex flex-col gap-4 pt-8 mt-4 border-t">
+              <p className="text-xs font-mono text-body-passive uppercase tracking-widest pb-2">
+                Account
+              </p>
+              <Button
+                variant="neutral"
+                className="w-full justify-start"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setOpenLoginForm(true);
+                }}
+              >
+                Login
+              </Button>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  setMenuOpen(false);
+                  router.push("/register");
+                }}
+              >
+                Create account
+              </Button>
+            </div>
+          )}
+
+          {isAuthenticated && (
+            <div className="flex flex-col gap-4 pt-8 mt-4 border-t">
+              <p className="text-xs font-mono text-body-passive uppercase tracking-widest pb-2">
+                Dashboard
+              </p>
+              {options.map((o, i) => (
+                <Button
+                  key={i}
+                  variant="neutral"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    o.action();
+                  }}
+                >
+                  {o.label}
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
+      </DashboardDrawer>
 
       <DashboardDrawer
         openDrawer={setOpen}
