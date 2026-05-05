@@ -192,10 +192,10 @@ function AuthLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex bg-background overflow-y-auto">
       {/* ─────────────────────────────── LEFT PANEL ─────────────────────────────── */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 lg:max-w-[50%]">
-        <div className="w-full max-w-[420px] flex flex-col items-center">
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 lg:max-w-[50%] min-h-screen">
+        <div className="w-full max-w-[420px] flex flex-col items-center py-10">
           {children}
-          <p className="mt-5 text-center text-xs text-muted-foreground leading-relaxed w-full px-1">
+          <p className="mt-10 text-center text-xs text-muted-foreground leading-relaxed w-full px-1">
             {isRegister ? (
               <>
                 By signing up, you agree to our{" "}

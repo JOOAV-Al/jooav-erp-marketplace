@@ -113,30 +113,12 @@ export default function MarketplacePageComponent() {
             ))}
           </div>
         ) : (
-          <div className="flex items-center gap-5">
-            <button
-              className={cn(
-                // Base — matches admin TabsTrigger
-                "inline-flex items-center justify-center whitespace-nowrap",
-                "rounded-md border border-transparent h-[42px] p-md",
-                "text-[15px] font-semibold leading-[1.2] tracking-[0.04em] cursor-pointer",
-                "transition-[color,box-shadow]",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                "disabled:pointer-events-none disabled:opacity-50",
-                // Inactive state — matches admin text-body
-                "text-body font-medium",
-                "bg-storey-foreground! text-heading font-semibold tracking-[0.02em]",
-                "shadow-sm border-border-main table-tag",
-              )}
-            >
-              Find by categories
-            </button>
             <CategoryTabs
               categories={categories}
+              showFilterButton={true}
               // activeSlug={activeTabSlug}
               onSelect={handleCategorySelect}
             />
-          </div>
         )}
       </div>
 
