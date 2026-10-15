@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useConfirmOrderPayment } from '@/features/marketplace/services/marketplace.api';
 import { PageSpinner } from '@/components/ui/spinner';
 import { useDispatch } from 'react-redux';
@@ -11,32 +11,43 @@ export default function PaymentVerificationPageComponent() {
   const params = useSearchParams();
   const router = useRouter();
   const paymentReference = params.get('paymentReference');
+
   const [paymentMessage, setPaymentMessage] = useState('Verifying payment');
   const dispatch = useDispatch();
 
-  const { mutateAsync: confirmPayment, isPending } = useConfirmOrderPayment();
+  // Ensures verify-payment is issued once, despite StrictMode double-invoke.
+  const hasVerifiedRef = useRef(false);
+
+  const { mutateAsync: confirmPayment } = useConfirmOrderPayment();
 
   useEffect(() => {
+    // React StrictMode double-invokes effects in dev, which previously issued
+    // two concurrent verify-payment calls for the same order. Guard with a ref
+    // so verification runs exactly once per mount.
+    if (hasVerifiedRef.current) return;
+    hasVerifiedRef.current = true;
+
     const verify = async () => {
       if (!paymentReference) return;
-      if (isPending) return
-        try {
-          const res = await confirmPayment({
-            orderNumber: paymentReference,
-          });
-          if (res?.data?.data?.success) {
-            setPaymentMessage(res.data?.data?.message ?? "Payment Successful");
-            dispatch(updateCartNumber({ orderNumber: null })); // CLEAR REDUX DRAFT CART
-            router.push(`/dashboard/orders`);
-          } else {
-            setPaymentMessage(res.data?.data?.message ?? "Payment Failed");
-            router.push(`/dashboard/orders?tab=incomplete`);
-          }
-        } catch (err) {
-          console.error(err);
-          setPaymentMessage("Payment Failed. An error occurred");
+
+      try {
+        const res = await confirmPayment({
+          orderNumber: paymentReference,
+        });
+
+        if (res?.data?.data?.success) {
+          setPaymentMessage(res.data?.data?.message ?? "Payment Successful");
+          dispatch(updateCartNumber({ orderNumber: null })); // CLEAR REDUX DRAFT CART
+          router.push(`/dashboard/orders`);
+        } else {
+          setPaymentMessage(res.data?.data?.message ?? "Payment Failed");
           router.push(`/dashboard/orders?tab=incomplete`);
         }
+      } catch (err) {
+        console.error(err);
+        setPaymentMessage("Payment Failed. An error occurred");
+        router.push(`/dashboard/orders?tab=incomplete`);
+      }
     };
 
     verify();
