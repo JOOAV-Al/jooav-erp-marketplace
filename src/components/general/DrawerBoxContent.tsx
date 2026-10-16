@@ -30,7 +30,7 @@ const DrawerBoxContent = ({
       <div className="px-xl pt-main shrink-0 flex justify-between items-center gap-5 pb-main">
         <div className={`flex flex-col gap-5 ${description && `py-sm`}`}>
           <div className="flex gap-[8px] items-center">
-            <h4 className="leading-[1.2] tracking-[0.01em]">{heading ?? ''}</h4>
+            <h4 className="leading-[1.2] tracking-[0.01em]">{heading ?? ""}</h4>
             {statusTag && <div>{statusTag}</div>}
           </div>
           {description && (

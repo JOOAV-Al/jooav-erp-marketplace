@@ -1,15 +1,18 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { PenLine } from "lucide-react";
 
 interface InputProps extends React.ComponentProps<"input"> {
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  isEdit?: boolean;
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, leftIcon, rightIcon, ...props }, ref) => {
+  ({ className, type, leftIcon, rightIcon, isEdit = false, ...props }, ref) => {
     const hasLeftIcon = Boolean(leftIcon);
     const hasRightIcon = Boolean(rightIcon);
+    const showEditIcon = isEdit && !hasRightIcon;
 
     return (
       <div className="relative w-full">
@@ -36,11 +39,14 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             // Dynamic padding based on icons
             // Logic: Base padding is 16px (px-main)
             // With left icon: 12px (pl-3) + 4px wrapper padding + icon width = total left space
-            // The pl-12 (48px) gives us: 12px + 4px padding + ~20px icon + 12px text offset = flush at 16px from wrapper edge
-            hasLeftIcon && !hasRightIcon && "pl-10 pr-main",
-            !hasLeftIcon && hasRightIcon && "pl-main pr-10",
-            hasLeftIcon && hasRightIcon && "pl-10 pr-10",
-            !hasLeftIcon && !hasRightIcon && "px-main",
+            // The pl-10 (40px) gives us: 12px + 4px padding + ~20px icon + 4px text offset = flush at 16px from wrapper edge
+            hasLeftIcon
+              ? hasRightIcon || showEditIcon
+                ? "pl-10 pr-10"
+                : "pl-10 pr-main"
+              : hasRightIcon || showEditIcon
+                ? "pl-main pr-10"
+                : "px-main",
 
             // Shadow from design system
             "shadow-input focus-visible:shadow-input",
@@ -61,22 +67,26 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             // Selection
             "selection:bg-primary selection:text-primary-foreground",
 
-            className
+            className,
           )}
           {...props}
         />
 
         {/* Right Icon Wrapper - 4px padding */}
-        {hasRightIcon && (
+        {(hasRightIcon || showEditIcon) && (
           <div className="absolute inset-y-0 right-3 flex items-center pointer-events-auto">
             <div className="p-1 flex items-center justify-center">
-              {rightIcon}
+              {showEditIcon ? (
+                <PenLine strokeWidth={2} className="h-5 w-5 text-outline-passive" />
+              ) : (
+                rightIcon
+              )}
             </div>
           </div>
         )}
       </div>
     );
-  }
+  },
 );
 
 Input.displayName = "Input";

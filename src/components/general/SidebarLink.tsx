@@ -1,11 +1,13 @@
 "use client";
 
 import CustomLoader from "@/components/general/CustomLoader";
+import Spinner from "@/components/general/Spinner";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTransition } from "react";
@@ -13,6 +15,7 @@ import { useTransition } from "react";
 interface SidebarLinkProps {
   href: string;
   label: string;
+  className?: string;
   Icon: React.ElementType;
   isCollapsed: boolean;
 }
@@ -20,6 +23,7 @@ interface SidebarLinkProps {
 export default function SidebarLink({
   href,
   label,
+  className,
   Icon,
   isCollapsed,
 }: SidebarLinkProps) {
@@ -40,41 +44,60 @@ export default function SidebarLink({
   };
 
   return (
-    <Link className="block" href={href} onClick={handleClick}>
+    <Link
+      className={`block w-full ${
+        isCollapsed ? "mr-2 max-w-15.5" : "max-w-full"
+      } ${className}`}
+      href={href}
+      onClick={handleClick}
+    >
       <div
-        className={`group flex items-center gap-3 px-4 py-2 rounded hover:bg-primary-500 hover:text-white transition-colors cursor-pointer ${
-          isActive ? "bg-brand-primary font-bold text-white" : ""
-        } ${isCollapsed ? "w-fit" : ""}`}
+        // hover:text-nominal-input-hover
+        className={`group flex items-center gap-6 px-sm py-5 rounded-md hover:bg-[#EDEDED] transition-colors cursor-pointer ${
+          isActive ? "bg-[#EDEDED] sidebar-link font-medium" : "font-medium"
+        } ${isCollapsed ? "w-fit mx-auto" : ""}`}
       >
-        {isTransitioning ? (
-          <CustomLoader />
+        {/* {isTransitioning ? (
+          <Spinner />
         ) : (
-          <>
-            {!isCollapsed ? (
+          <> */}
+        {!isCollapsed ? (
+          <Icon
+            size={18}
+            strokeWidth={2}
+            className={`transition-colors ${
+              isActive ? "text-outline" : "text-outline-passive"
+            } group-hover:text-outline`}
+          />
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild className="">
               <Icon
-                size={24}
+                strokeWidth={2}
+                size={18}
                 className={`transition-colors ${
-                  isActive ? "text-white" : "text-[#6B7280]"
-                } group-hover:text-white`}
+                  isActive ? "text-outline" : "text-outline-passive"
+                } group-hover:text-outline`}
               />
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Icon
-                    size={24}
-                    className={`transition-colors ${
-                      isActive ? "text-white" : "text-[#6B7280]"
-                    } group-hover:text-white`}
-                  />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{label}</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{label}</p>
+            </TooltipContent>
+          </Tooltip>
+          //   )}
+          // </>
         )}
-        {!isCollapsed && <p className="sidebar-text">{label}</p>}
+        {!isCollapsed && (
+          <p
+            className={`${
+              isActive
+                ? "text-body"
+                : "text-body group-hover:text-body w-fit"
+            } text-[15px] leading-[1.2] tracking-[0.04em]`}
+          >
+            {label}
+          </p>
+        )}
       </div>
     </Link>
   );

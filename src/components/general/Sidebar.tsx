@@ -2,16 +2,37 @@
 "use client";
 import { useEffect } from "react";
 import {
-  Home,
-  ShoppingBag,
-  PackageSearch,
-  CreditCard,
-  UserCircle,
-  Settings,
-  LogOut,
+  // CreditCard,
+  // Home,
+  // LibraryBig,
+  // NotebookPen,
+  // PencilRuler,
+  // Table,
+  // TabletSmartphone,
+  // X,
+  // Settings,
+  // LogOut,
   PanelRightOpen,
   PanelRightClose,
-  X,
+  // MessageCircleMoreIcon,
+  // ChartLineIcon,
+  LayoutDashboard,
+  // Bell,
+  ShoppingBag,
+  // FolderPen,
+  // FolderTree,
+  DiamondPlus,
+  GitBranchPlus,
+  Workflow,
+  UserPlus,
+  UserCog,
+  // UserStar,
+  // Users,
+  PackagePlus,
+  // Bike,
+  CheckCheck,
+  ListTree,
+  // Router,
 } from "lucide-react";
 import SidebarLink from "./SidebarLink";
 // import AuthLogo from "@/components/authentication/AuthLogo";
@@ -21,12 +42,13 @@ import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 // import { RootState } from '@/store';
-import Cookies from "js-cookie";
+// import Cookies from "js-cookie";
 // import { RootState } from "@/store";
 // import { truncateText } from "@/lib/utils";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { RootState } from "@/redux/store";
-import { logout } from "@/redux/slices/authSlice";
+import { HideIfRole } from "@/lib/rbac/HideIfRole";
+// import { logout } from "@/redux/slices/authSlice";
 interface SidebarProps {
   isOpen: boolean;
   toggleSidebar: () => void;
@@ -35,6 +57,76 @@ interface SidebarProps {
   isCollapsed: boolean;
   setIsCollapsed?: () => void;
 }
+const links = {
+  overview: [
+    {
+      label: "Dashboard",
+      href: "/dashboard",
+      icon: LayoutDashboard,
+    },
+    // {
+    //   label: "Notification",
+    //   href: "/dashboard/notification",
+    //   icon: Bell,
+    // },
+  ],
+  order: [
+    {
+      label: "Order log",
+      href: "/dashboard/order-logs",
+      icon: ShoppingBag,
+    },
+    // {
+    //   label: "Logistics",
+    //   href: "/dashboard/logistics",
+    //   icon: Bike,
+    // },
+    {
+      label: "Fulfilled",
+      href: "/dashboard/fulfilled-orders",
+      icon: CheckCheck,
+    },
+  ],
+  catalog: [
+    {
+      label: "Product",
+      href: "/dashboard/product",
+      icon: PackagePlus,
+    },
+    {
+      label: "Manufacturer",
+      href: "/dashboard/manufacturer",
+      icon: DiamondPlus,
+    },
+    {
+      label: "Brand",
+      href: "/dashboard/brand",
+      icon: GitBranchPlus,
+    },
+    {
+      label: "Variant",
+      href: "/dashboard/variant",
+      icon: Workflow,
+    },
+    {
+      label: "Category",
+      href: "/dashboard/category",
+      icon: ListTree,
+    },
+  ],
+  user: [
+    {
+      label: "Users",
+      href: "/dashboard/users",
+      icon: UserPlus,
+    },
+    {
+      label: "Roles & Permissions",
+      href: "/dashboard/roles-and-permissions",
+      icon: UserCog,
+    },
+  ],
+};
 
 export default function Sidebar({
   isOpen,
@@ -57,29 +149,6 @@ export default function Sidebar({
     }
   }, [pathname]);
 
-  const links = [
-    {
-      label: "Marketplace",
-      href: "/marketplace",
-      icon: ShoppingBag,
-    },
-    {
-      label: "My Orders",
-      href: "/dashboard/orders",
-      icon: PackageSearch,
-    },
-    {
-      label: "Payments",
-      href: "/dashboard/payments",
-      icon: CreditCard,
-    },
-    {
-      label: "Profile",
-      href: "/dashboard/profile",
-      icon: UserCircle,
-    },
-  ];
-
   if (isHidden) return null; // completely hidden
 
   return (
@@ -94,135 +163,180 @@ export default function Sidebar({
 
       <aside
         className={`
-          fixed top-0 left-0 z-10 h-screen bg-white
+          fixed top-0 left-0 z-10 h-screen bg-background
           transform ${isOpen ? "translate-x-0" : "-translate-x-full"}
           transition-all duration-300 ease-in-out
           md:translate-x-0
           md:fixed md:h-screen md:overflow-y-auto
-          ${isCollapsed ? "max-w-[100px]" : "max-w-62"} w-full
+          ${isCollapsed ? "max-w-17" : "max-w-57.5"} w-full
         `}
       >
-        <div className="flex flex-col h-full overflow-y-auto p-4 py-8">
+        <div className={`flex flex-col gap-main h-full`}>
           {/* Top Section */}
-          <div className="flex items-start justify-between">
+          <div
+            className={`flex-none flex items-center justify-between border-b border-border-main ${
+              isCollapsed ? "justify-center" : ""
+            } py-lg max-h-18 h-full px-main`}
+          >
             {!isCollapsed && (
               <Image
                 src={"/auth/jooav-logo.svg"}
                 alt="JOOAV Logo"
-                width={90.7}
-                height={24}
-                className="py-xl"
+                width={75.58}
+                height={20}
               />
             )}
-            <div className="flex gap-2">
+            <div className={`flex gap-2`}>
               {/* Collapse/Expand Button */}
               <button
                 onClick={setIsCollapsed}
-                className="p-1 rounded hover:bg-gray-200 cursor-pointer"
+                className={`${
+                  isCollapsed ? "px-3" : "px-sm"
+                } rounded hover:bg-gray-200 cursor-pointer text-outline`}
               >
                 {isCollapsed ? (
-                  <PanelRightClose size={20} />
+                  <PanelRightClose strokeWidth={2} size={24} />
                 ) : (
-                  <PanelRightOpen size={20} />
+                  <PanelRightOpen strokeWidth={2} size={24} />
                 )}
               </button>
               {/* Hide Button */}
-              <button
+              {/* <button
                 // onClick={() => setIsHidden(true)}
                 onClick={hideSidebar}
-                className="p-1 rounded hover:bg-gray-200 cursor-pointer"
+                className={`${
+                  isCollapsed ? "px-3" : "px-sm"
+                } rounded hover:bg-gray-200 cursor-pointer text-outline-passive`}
               >
-                <X size={20} />
-              </button>
+                <X size={24} color="red" />
+              </button> */}
             </div>
           </div>
-
           {/* Divider */}
-          {!isCollapsed && <div className="border-t" />}
-          <ScrollArea className="min-h-72 w-full">
-            {/* Home Link */}
-            <nav className="mt-8">
-              <SidebarLink
-                href={"/dashboard"}
-                label="Home"
-                Icon={Home}
-                isCollapsed={isCollapsed}
-              />
-            </nav>
+          <ScrollArea isSidebar className="flex-1 min-h-52 min-w-0">
+            <div className="py-main flex flex-col gap-sm px-md">
+              {/* Overview */}
+              <div
+                className={`flex flex-col gap-7 ${
+                  isCollapsed ? "border-t-2 border-border-main pt-main" : ""
+                }`}
+              >
+                {!isCollapsed && (
+                  <h6 className="font-mono leading-[1.2] tracking-[0.08em] text-[12px] text-body-passive">
+                    OVERVIEW
+                  </h6>
+                )}
+                <nav className="flex flex-col gap-4">
+                  {links.overview.map((link) => (
+                    <SidebarLink
+                      key={link.href}
+                      href={link.href}
+                      label={link.label}
+                      Icon={link.icon}
+                      isCollapsed={isCollapsed}
+                    />
+                  ))}
+                </nav>
+              </div>
 
-            {/* Main Links */}
-            <div
-              className={`flex flex-col gap-2 ${
-                isCollapsed ? "mt-4" : "mt-12"
-              }`}
-            >
-              {!isCollapsed && <h4 className="paraMedium mb-2">MAIN MENU</h4>}
-              <nav className="space-y-2 flex flex-col gap-2">
-                {links.map((link) => (
-                  <SidebarLink
-                    key={link.href}
-                    href={link.href}
-                    label={link.label}
-                    Icon={link.icon}
-                    isCollapsed={isCollapsed}
-                  />
-                ))}
-              </nav>
-            </div>
-
-            <div
-              className={`flex flex-col gap-4 ${
-                isCollapsed ? "mt-4 md:mt-4" : "mt-10 md:mt-12"
-              }`}
-            >
-              {/* Settings Link */}
-              <nav className="">
-                <SidebarLink
-                  href={"/dashboard/settings"}
-                  label="Settings"
-                  Icon={Settings}
-                  isCollapsed={isCollapsed}
-                />
-              </nav>
-              <div className="flex justify-between items-center border-t border-[#E4E7EC] pt-6">
+              {/* Order */}
+              <HideIfRole roles={["PROCUREMENT_OFFICER"]}>
                 <div
-                  className={`flex justify-between gap-1 ${
-                    isCollapsed ? "mr-2 w-8 h-8" : "mr-0"
+                  className={`flex flex-col gap-7 ${
+                    isCollapsed ? "border-t-2 border-[#EDEDED] pt-main" : ""
                   }`}
                 >
-                  <Image
-                    src={"/assets/dashboard/student/avatar.svg"}
-                    alt="User Avatar"
-                    width={52}
-                    height={52}
-                    className="rounded-full object-cover"
-                  />
                   {!isCollapsed && (
-                    <div>
-                      <h4 className="header4 text-[14px]! md:text-[18px]!">
-                        {user?.firstName || ""}
-                      </h4>
-                      <p className="body-mobile text-[#667085]">
-                        {user?.email}
-                      </p>
-                    </div>
+                    <h6 className="font-mono leading-[1.2] tracking-[0.08em] text-[12px] text-body-passive">
+                      ORDER
+                    </h6>
                   )}
+                  <nav className="flex flex-col gap-4">
+                    {links.order.map((link) => (
+                      <SidebarLink
+                        key={link.href}
+                        href={link.href}
+                        label={link.label}
+                        Icon={link.icon}
+                        isCollapsed={isCollapsed}
+                      />
+                    ))}
+                  </nav>
                 </div>
-                <div className="h-10 w-10 hover:bg-gray-100 hover:p-2 rounded-full flex justify-center items-center">
-                  <LogOut
-                    onClick={() => {
-                      dispatch(logout());
-                      router.push("/login");
-                    }}
-                    className="cursor-pointer text-[#667085] hover:text-red-500 font-semibold"
-                    size={24}
-                  />
+              </HideIfRole>
+
+              {/* Catalog */}
+              <HideIfRole roles={["PROCUREMENT_OFFICER"]}>
+                <div
+                  className={`flex flex-col gap-7 ${
+                    isCollapsed ? "border-t-2 border-[#EDEDED] pt-main" : ""
+                  }`}
+                >
+                  {!isCollapsed && (
+                    <h6 className="font-mono leading-[1.2] tracking-[0.08em] text-[12px] text-body-passive">
+                      CATALOG
+                    </h6>
+                  )}
+                  <nav className="flex flex-col gap-4">
+                    {links.catalog.map((link) => (
+                      <SidebarLink
+                        key={link.href}
+                        href={link.href}
+                        label={link.label}
+                        Icon={link.icon}
+                        isCollapsed={isCollapsed}
+                      />
+                    ))}
+                  </nav>
                 </div>
-              </div>
+              </HideIfRole>
+
+              {/* Users */}
+              <HideIfRole roles={["PROCUREMENT_OFFICER"]}>
+                <div
+                  className={`flex flex-col gap-7 ${
+                    isCollapsed ? "border-t-2 border-[#EDEDED] pt-main" : ""
+                  }`}
+                >
+                  {!isCollapsed && (
+                    <h6 className="font-mono leading-[1.2] tracking-[0.08em] text-[12px] text-body-passive">
+                      USER
+                    </h6>
+                  )}
+                  <nav className="flex flex-col gap-4">
+                    {links.user.map((link) => (
+                      <SidebarLink
+                        key={link.href}
+                        href={link.href}
+                        label={link.label}
+                        Icon={link.icon}
+                        isCollapsed={isCollapsed}
+                      />
+                    ))}
+                  </nav>
+                </div>
+              </HideIfRole>
             </div>
           </ScrollArea>
+          {/* Banner section */}
+          <div className="flex-none p-sm">
+            <div className="w-full rounded-lg">
+              <Image
+                height={150}
+                width={300}
+                src={
+                  isCollapsed
+                    ? "/dashboard/sidebar-banner-col.svg"
+                    : "/dashboard/sidebar-banner.svg"
+                }
+                alt="sidebar image"
+              />
+            </div>
+          </div>
         </div>
       </aside>
     </>
   );
 }
+
+export { links };

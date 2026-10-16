@@ -15,7 +15,7 @@ import { Plus } from "lucide-react";
 
 interface DashboardDrawerProps {
   children: React.ReactNode;
-  temporaryFooter: React.ReactNode;
+  temporaryFooter?: React.ReactNode;
   openDrawer: (isOpen: boolean) => void;
   isOpen: boolean;
   triggerText?: string;
@@ -109,7 +109,6 @@ const DashboardDrawer = ({
           {temporaryFooter ? (
             <div className="px-xl py-main">{temporaryFooter}</div>
           ) : (
-
           <RightDrawerFooter>
             {/* Secondary action button (e.g., "Publish") */}
             {showSecondaryButton && (

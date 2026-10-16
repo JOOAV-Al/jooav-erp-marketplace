@@ -1,6 +1,9 @@
+import { BulkMutationResponse, DefaultBulkMutationData } from "@/interfaces/general";
 import { clsx, type ClassValue } from "clsx"
+import { format } from "date-fns";
+import parsePhoneNumberFromString from "libphonenumber-js";
+import { toast } from "sonner";
 import { twMerge } from "tailwind-merge"
-import {format} from "date-fns"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -33,20 +36,34 @@ export function truncateText(text: string, maxLength: number=30): string {
   return text.slice(0, maxLength);
 }
 
-// export const normalizePhone = (phone: string) => {
-//     // normalize phone to E.164 then strip the leading + for wa.me
-//     let e164 = phone;
-//     try {
-//       const parsed = parsePhoneNumberFromString(phone, "NG");
-//       if (parsed && parsed?.isValid()) {
-//         e164 = parsed?.format("E.164"); // e.g. 234803...
-//       }
-//     } catch (e) {
-//       // fallback: use rawPhone
-//     }
-//     const waDigits = e164?.replace(/\D/g, ""); // remove '' and non-digits -> 234803...
-//     return waDigits;
-//   }
+export const downloadFileWithBlob = (blobLink: string) => {
+  // Create a temporary anchor element
+  const link = document.createElement("a");
+  // Set the href to the blob URL
+  link.href = blobLink
+  // Set the download attribute with a desired filename
+  link.download = "template.csv"; // Or a more descriptive name
+  // Programmatically click the link to trigger the download
+  document.body.appendChild(link); // Append to body is good practice, though often not strictly necessary for programmatic clicks
+  link.click();
+  document.body.removeChild(link); // Clean up the temporary link
+  console.log("download initiated"); 
+}
+
+export const normalizePhone = (phone: string) => {
+    // normalize phone to E.164 then strip the leading + for wa.me
+    let e164 = phone;
+    try {
+      const parsed = parsePhoneNumberFromString(phone, "NG");
+      if (parsed && parsed?.isValid()) {
+        e164 = parsed?.format("E.164"); // e.g. 234803...
+      }
+    } catch (e) {
+      // fallback: use rawPhone
+    }
+    const waDigits = e164?.replace(/\D/g, ""); // remove '' and non-digits -> 234803...
+    return waDigits;
+  }
 
 
 /**
@@ -85,8 +102,15 @@ export const getItemStatusStyles = (status = "") => {
     case "DELIVERED":
     case "COMPLETED":
       return {
-        styles: "table-tag border-border-accent bg-tag-added text-brand-primary!",
+        styles:
+          "table-tag border-border-accent bg-tag-added text-brand-primary!",
         text: "Completed",
+      };
+    case "PAID":
+      return {
+        styles:
+          "table-tag border-border-accent bg-tag-added text-brand-primary!",
+        text: "Paid",
       };
     case "SHIPPED":
     case "SOURCING":
@@ -100,11 +124,6 @@ export const getItemStatusStyles = (status = "") => {
         styles: "table-tag border-border-accent bg-tag-queue text-destructive",
         text: "Pending",
       };
-    // case "PAID":
-    //   return {
-    //     styles: "table-tag border-border-accent bg-tag-added text-brand-primary!",
-    //     text: "Paid",
-    //   };
     default:
       return {
         styles: "table-tag border-border-accent bg-[#F7F7F7] text-body",
@@ -181,7 +200,6 @@ export const getOrderAssignmentStatusStyles = (status = "") => {
   }
 };
 
-
 export const getUserTagStyles = (value: string = "ADMIN") => {
   if (value === "SUPER_ADMIN") {
     return {
@@ -213,4 +231,18 @@ export function enumToTitleCase(value: string): string {
     .split("_")
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+export function handleBulkMutationMessage (response: BulkMutationResponse<DefaultBulkMutationData>, entity: string) {
+  const res = response?.data
+  const hasFailed = res?.failed > 0
+  const hasSuccess = res?.successful > 0
+  const title = `${res.successful ?? 0} Successful. ${res?.failed ?? 0} Failed`
+  const message = hasFailed ? `Failed to delete some ${entity} associated to a product` : `Multiple ${entity} deleted successfully`
+    toast.error(title, {
+    style: { backgroundColor: hasFailed ? '#F43F5E' : "hsl(216 82% 55%)", borderRadius: "12px" },
+    description: message,
+    className: "force-white-toast",
+  })
+  return {hasFailed, hasSuccess}
 }

@@ -17,6 +17,8 @@ const nextConfig: NextConfig = {
         hostname: "**.cloudinary.com",
       },
     ],
+    // dashboards render local/remote SVGs via next/image
+    dangerouslyAllowSVG: true,
   },
 };
 

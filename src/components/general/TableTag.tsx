@@ -7,9 +7,13 @@ interface TableTagProps {
   className?: string;
   small?: boolean;
   loading?: boolean;
-
 }
-const TableTag = ({ text = "status", small = false, loading=false, className }: TableTagProps) => {
+const TableTag = ({
+  text = "status",
+  small = false,
+  loading = false,
+  className,
+}: TableTagProps) => {
   return (
     <div
       className={`flex justify-center items-center rounded-md ${small ? "h-[21px] p-5" : "h-[25px] p-sm"} border-[0.5px] table-tag w-fit ${className}`}

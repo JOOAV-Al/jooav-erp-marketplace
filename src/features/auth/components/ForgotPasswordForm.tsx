@@ -19,6 +19,7 @@ import { useForgotPassword } from "@/features/auth/services/auth.api";
 import AuthCardHeader from "@/features/auth/components/AuthCardHeader";
 import { useState } from "react";
 import { MailIcon } from "lucide-react";
+import FieldIcon from "@/components/general/FieldIcon";
 
 const forgotPasswordSchema = z.object({
   email: z.email("Enter a valid email"),
@@ -49,7 +50,7 @@ export function ForgotPasswordForm({ toggleForm }: { toggleForm: () => void }) {
   };
 
   return (
-    <div className="auth-card shadow-card flex flex-col gap-7 h-[530px]">
+    <div className="auth-card shadow-card flex flex-col gap-7 aspect-370/530 sm:aspect-420/530 min-h-[530px] sm:min-h-[480px] max-h-[680px]">
       <AuthCardHeader
         header="Reset Password"
         description="You’ll get a password reset link if we have your details in our database"
@@ -78,7 +79,7 @@ export function ForgotPasswordForm({ toggleForm }: { toggleForm: () => void }) {
                       type="email"
                       placeholder="Enter your email"
                       aria-invalid={fieldState.invalid}
-                      leftIcon={<MailIcon className="h-4 w-4" />}
+                      leftIcon={<FieldIcon Icon={MailIcon} />}
                     />
                   </Field>
                 </div>
