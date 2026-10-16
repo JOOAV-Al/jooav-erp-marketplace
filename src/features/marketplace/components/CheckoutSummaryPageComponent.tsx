@@ -7,6 +7,8 @@ import { Edit3, X } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   useGetOrderDetails,
+  useGetPaymentSettings,
+  useInitiateManualOrderPayment,
   useInitiateOrderPayment,
   useReInitiateOrderPayment,
   useUpdateDraftOrder,
@@ -59,6 +61,12 @@ export default function CheckoutSummaryPageComponent() {
     useInitiateOrderPayment();
   const { mutateAsync: reInitiatePayment, isPending: reInitiatingPayment } =
     useReInitiateOrderPayment();
+  const {
+    mutateAsync: initiateManualPayment,
+    isPending: initiatingManualPayment,
+  } = useInitiateManualOrderPayment();
+  const { data: paymentSettings, isPending: paymentSettingsLoading } =
+    useGetPaymentSettings();
 
   const dummyFiveDaysEstimated = new Date();
   dummyFiveDaysEstimated.setDate(dummyFiveDaysEstimated.getDate() + 5);
@@ -101,6 +109,43 @@ export default function CheckoutSummaryPageComponent() {
     if (!selectedOrderNumber) return;
     if (!userDraftCart) return;
 
+    // Manual bank transfer: orders keep the channel they were started with
+    // while drafts follow whichever method is currently configured.
+    const initiatedChannel = userDraftCart?.paymentChannel;
+    const isManualFlow =
+      initiatedChannel === "MANUAL" ||
+      (initiatedChannel == null &&
+        !userDraftCart?.monnifyInvoiceRef &&
+        paymentSettings?.method === "MANUAL");
+
+    if (isManualFlow) {
+      if (userDraftCart.status === "DRAFT") {
+        const manualRes = await initiateManualPayment({
+          orderNumber: selectedOrderNumber,
+        });
+        if (manualRes.data.status !== "success") return;
+        dispatch(
+          updateCartNumber({
+            orderNumber:
+              manualRes.data.data?.order?.orderNumber ??
+              userDraftCart.orderNumber,
+          }),
+        );
+        refetch();
+        router.push(
+          `/dashboard/checkout/manual-payment?orderNumber=${
+            manualRes.data.data?.order?.orderNumber ?? selectedOrderNumber
+          }`,
+        );
+        return;
+      }
+
+      router.push(
+        `/dashboard/checkout/manual-payment?orderNumber=${selectedOrderNumber}`,
+      );
+      return;
+    }
+
     // Check if a previous checkout URL exists and is still valid
     const now = new Date();
     const expiresAt = userDraftCart?.paymentExpiresAt
@@ -141,7 +186,8 @@ export default function CheckoutSummaryPageComponent() {
     }
   };
 
-  const paymentLoading = initiatingPayment || reInitiatingPayment;
+  const paymentLoading =
+    initiatingPayment || reInitiatingPayment || initiatingManualPayment;
 
   if (isPending) return <CheckoutPageSkeleton />;
 
@@ -314,7 +360,7 @@ export default function CheckoutSummaryPageComponent() {
               <Button
                 type="submit"
                 className="w-full gap-4 tracking-[0.02em]"
-                disabled={paymentLoading}
+                disabled={paymentLoading || paymentSettingsLoading}
                 onClick={handleProceedToPayment}
               >
                 {paymentLoading ? (

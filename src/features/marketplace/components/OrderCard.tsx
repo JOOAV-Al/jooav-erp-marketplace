@@ -1,7 +1,7 @@
 "use client";
 
 import { Checkbox } from "@/components/ui/checkbox";
-import { BellRing, Trash2 } from "lucide-react";
+import { BellRing, Info, Trash2 } from "lucide-react";
 import AppImage from "@/components/general/AppImage";
 import { Order, OrderItem } from "@/features/marketplace/types";
 import TableTag from "@/components/general/TableTag";
@@ -75,6 +75,7 @@ export function OrderCard({
   const [reorderingOrderNumber, setReorderingOrderNumber] = useState("");
   const [removingItemId, setRemovingItemId] = useState("");
   const isInventory = pathname.includes("/dashboard/inventory");
+  const isCustomerOrders = pathname.includes("/dashboard/orders");
   const showInitiatePayment = ["DRAFT", "PENDING_PAYMENT"].includes(
     order.status,
   );
@@ -160,6 +161,28 @@ export function OrderCard({
           )}
         </div>
       </div>
+
+      {/* ── Manual payment claim notice (customer) ────────────────────────── */}
+      {isCustomerOrders &&
+        order.status === "PENDING_PAYMENT" &&
+        (order.paymentClaimStatus === "PENDING" ||
+          order.paymentClaimStatus === "REJECTED") && (
+          <div className="flex items-start gap-main rounded-xl border border-border-main bg-storey-foreground px-main py-md">
+            <Info className="mt-0.5 size-4 shrink-0 text-outline-passive" />
+            <p className="text-[13px] font-medium leading-[1.5] text-body-passive">
+              {order.paymentClaimStatus === "PENDING" ? (
+                "Your payment claim is under review. We will confirm your order shortly."
+              ) : (
+                <>
+                  <span className="text-body">Payment claim rejected:</span>{" "}
+                  {order.paymentClaimRejectionReason ??
+                    "The payment could not be verified."}{" "}
+                  Review the account details and try again.
+                </>
+              )}
+            </p>
+          </div>
+        )}
 
       {/* ── Item rows ──────────────────────────────────────────────────────── */}
       <div>

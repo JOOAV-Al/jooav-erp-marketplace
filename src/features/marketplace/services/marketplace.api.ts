@@ -8,6 +8,7 @@ import type {
   CreateOrderPayload,
   OutOfStockReport,
   OutOfStockReportPayload,
+  PaymentSettings,
 } from "@/features/marketplace/types";
 import { useInvalidatingMutation } from "@/lib/api/useInvalidatingMutations";
 import {
@@ -198,6 +199,44 @@ export const useConfirmOrderPayment = () => {
         `/orders/${orderNumber}/verify-payment`,
       ),
     invalidateQueries: [["all-orders"], ["order-details"], ["orders-stats"]],
+  });
+};
+
+// ── Payment settings (which method customers pay with) ─────────────────
+
+export const useGetPaymentSettings = () => {
+  return useQuery({
+    queryKey: ["public-payment-settings"],
+    queryFn: async (): Promise<PaymentSettings> => {
+      const res = await api.get<MutationResponse<PaymentSettings>>(
+        "/settings/payment",
+        { noToast: true } as CustomAxiosRequestConfig,
+      );
+      return res.data.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+// Converts a draft order into a PENDING_PAYMENT order for manual transfer.
+export const useInitiateManualOrderPayment = () => {
+  return useInvalidatingMutation({
+    mutationFn: ({ orderNumber }: { orderNumber: string }) =>
+      api.post<MutationResponse<{ order: Order }>>(
+        `/orders/${orderNumber}/initiate-manual-payment`,
+        {},
+        { noToast: true } as CustomAxiosRequestConfig,
+      ),
+    invalidateQueries: [["order-details"], ["orders-stats"], ["all-orders"]],
+  });
+};
+
+// Customer claims a manual transfer was made; admins review the claim.
+export const useCreatePaymentClaim = () => {
+  return useInvalidatingMutation({
+    mutationFn: ({ orderNumber }: { orderNumber: string }) =>
+      api.post<MutationResponse<Order>>(`/orders/${orderNumber}/payment-claim`),
+    invalidateQueries: [["order-details"], ["orders-stats"], ["all-orders"]],
   });
 };
 

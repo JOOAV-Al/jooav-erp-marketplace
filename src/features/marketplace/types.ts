@@ -238,8 +238,27 @@ export interface Order {
   assignedAt: string | null;
   assignmentRespondedAt: string | null;
   paymentExpiresAt: string | null;
+  paymentChannel: "MONNIFY" | "MANUAL" | null;
+  paymentClaimStatus: "PENDING" | "APPROVED" | "REJECTED" | null;
+  paymentClaimedAt: string | null;
+  paymentClaimRejectionReason: string | null;
   orderDate: string | null;
   submittedAt: string;
+}
+
+export type PaymentMethod = "MONNIFY" | "MANUAL";
+
+export interface ManualPaymentAccount {
+  id: string;
+  accountName: string;
+  accountNumber: string;
+  bankName: string;
+  isVisible: boolean;
+}
+
+export interface PaymentSettings {
+  method: PaymentMethod;
+  manualAccounts: ManualPaymentAccount[];
 }
 
 export interface OutOfStockReportPayload {
