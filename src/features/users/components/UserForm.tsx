@@ -148,7 +148,6 @@ export function UserForm({
     });
   }, [user?.id, reset]);
 
-  console.log(user)
   const userRoles = [
     { value: ROLES.ADMIN, label: "Admin" },
     ...(authUser?.role === ROLES.SUPER_ADMIN

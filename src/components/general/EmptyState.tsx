@@ -17,7 +17,7 @@ const EmptyState = ({
   cta,
   image = "",
   onCTAClick,
-  showCTA=true,
+  showCTA = true,
 }: EmptyStateProps) => {
   return (
     <div className="flex justify-center my-10 px-sm">

@@ -13,5 +13,5 @@ export const HideIfRole = ({ roles, children }: HideIfRoleProps) => {
 
   if (!userRole) return null;
 
-  return roles.includes(userRole) ? null : <>{children}</>;
+  return (roles as readonly string[]).includes(userRole) ? null : <>{children}</>;
 };

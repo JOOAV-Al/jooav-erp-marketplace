@@ -13,36 +13,66 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-// import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useLogin } from "@/features/auth/services/auth.api";
-import { usePathname, useRouter } from "next/navigation";
-// import { useDispatch } from "react-redux";
-// import { setCredentials } from "@/redux/slices/authSlice";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useDispatch } from "react-redux";
+import { setCredentials } from "@/redux/slices/authSlice";
 import AuthCardHeader from "@/features/auth/components/AuthCardHeader";
 import Cookies from "js-cookie";
 import PasswordInput from "@/features/auth/components/PasswordInput";
 import FieldIcon from "@/components/general/FieldIcon";
-import { EyeIcon, Mail } from "lucide-react";
+import { Eye, Mail } from "lucide-react";
+import { useUpdateDraftOrder } from "@/features/marketplace/services/marketplace.api";
 
 const loginSchema = z.object({
   email: z.email("Enter a valid email"),
   password: z.string().min(8, "Must be 8 characters"),
 });
 
-export function LoginForm({ toggleForm }: { toggleForm: () => void }) {
-  const router = useRouter();
-  // const dispatch = useDispatch();
-  const pathname = usePathname();
+type TempCartValue = {
+  productId: string;
+  quantity: number;
+  id?: string;
+  name?: string;
+  price?: number;
+  size?: string;
+  type?: string;
+  currency?: string;
+};
 
-  const getFormHeader = (): string => {
-    if (pathname.includes("super-admin")) {
-      return "Super-admin login";
-    } else if (pathname.includes("sub-admin")) {
-      return "Sub-admin login";
-    } else {
-      return "Admin login";
+const safeParseTempCart = (): TempCartValue | null => {
+  if (typeof window === "undefined") return null;
+  const stored = localStorage.getItem("tempCartItem");
+  if (!stored) return null;
+  try {
+    const parsed = JSON.parse(stored);
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.productId === "string" &&
+      Number(parsed.quantity) > 0
+    ) {
+      return parsed as TempCartValue;
     }
-  };
+  } catch {
+    // invalid JSON
+  }
+  return null;
+};
+
+export function LoginForm({
+  toggleForm,
+  isCustom,
+  handleCustomAction,
+}: {
+  toggleForm?: () => void;
+  isCustom?: boolean;
+  handleCustomAction?: () => void;
+}) {
+  const router = useRouter();
+  const dispatch = useDispatch();
+  const searchparams = useSearchParams();
+  const fromCart = searchparams.get("fromCart");
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -60,28 +90,55 @@ export function LoginForm({ toggleForm }: { toggleForm: () => void }) {
   } = form;
 
   const { mutateAsync: login, isPending } = useLogin();
+  const { mutateAsync: updateDraftOrder, isPending: updating } =
+    useUpdateDraftOrder();
 
   const onSubmit = async (values: z.infer<typeof loginSchema>) => {
     const { data } = await login(values);
-    // console.log(data)
 
-    Cookies.set("authToken", data.data.accessToken);
+    dispatch(
+      setCredentials({
+        user: data.data.user,
+        token: data.data.accessToken,
+      }),
+    );
+
     Cookies.set("refreshToken", data.data.refreshToken);
 
-    // dispatch(
-    //   setCredentials({
-    //     user: data.data.admin,
-    //     token: data.data.accessToken,
-    //   })
-    // );
-    router.push("/dashboard");
+    const tempCartItem = safeParseTempCart();
+    const draftCartId = data.data.user?.wholesalerProfile?.draftCart;
+    if (tempCartItem && draftCartId && fromCart === "true") {
+      try {
+        const payload = {
+          item: {
+            action: "ADD",
+            productId: tempCartItem.productId,
+            quantity: tempCartItem.quantity,
+          },
+        };
+        const res = await updateDraftOrder({ payload, id: draftCartId });
+        if (res?.data?.status === "success") {
+          localStorage.removeItem("tempCartItem");
+        }
+      } catch (error) {
+        // optional: toast error, but continue to redirect
+        console.error("Failed to restore temp cart item:", error);
+        localStorage.removeItem("tempCartItem");
+      }
+    }
+
+    if (isCustom) {
+      handleCustomAction?.();
+    } else {
+      router.push("/marketplace");
+    }
   };
 
   return (
-    <div className="auth-card shadow-card flex flex-col gap-7 aspect-370/530 sm:aspect-420/530 min-h-[530px] sm:min-h-[480px] max-h-[680px]">
+    <div className="auth-card shadow-card flex flex-col gap-7 h-auto min-h-[480px]">
       <AuthCardHeader
-        header={getFormHeader()}
-        description="Log in with your admin credentials."
+        header="Login"
+        description="Log in with your credentials."
       />
       <FieldSet className="flex flex-1">
         <form
@@ -142,7 +199,13 @@ export function LoginForm({ toggleForm }: { toggleForm: () => void }) {
               variant={"ghost"}
               size={"ghost"}
               className="w-fit h-fit p-0"
-              onClick={toggleForm}
+              onClick={() => {
+                if (isCustom) {
+                  router.push("/login");
+                } else {
+                  toggleForm?.();
+                }
+              }}
             >
               Forgot Password?
             </Button>
@@ -159,9 +222,30 @@ export function LoginForm({ toggleForm }: { toggleForm: () => void }) {
           </FieldGroup>
           <div className="mt-auto">
             {/* SUBMIT */}
-            <Button type="submit" className="w-full mt-7" disabled={isPending}>
-              {isPending ? "Logging in..." : "Admin login"}
+            <Button
+              type="submit"
+              className="w-full mt-7"
+              disabled={isPending || updating}
+            >
+              {isPending
+                ? "Logging in..."
+                : updating
+                  ? "Updating cart..."
+                  : "Login"}
             </Button>
+          </div>
+          <div className="mt-8 text-center text-sm text-body-passive">
+            Don&apos;t have an account?{" "}
+            <button
+              type="button"
+              onClick={() => {
+                if (isCustom) handleCustomAction?.();
+                router.push("/register");
+              }}
+              className="text-primary font-semibold hover:underline cursor-pointer"
+            >
+              Sign up
+            </button>
           </div>
         </form>
       </FieldSet>

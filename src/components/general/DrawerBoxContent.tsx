@@ -1,6 +1,8 @@
-import Spinner from "@/components/general/Spinner";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import React from "react";
+import { RightDrawerClose } from '@/components/general/right-drawer';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Spinner } from '@/components/ui/spinner';
+import { X } from 'lucide-react';
+import React from 'react';
 
 export interface DrawerBoxContentProps {
   heading?: string;
@@ -9,6 +11,8 @@ export interface DrawerBoxContentProps {
   actionDropdown?: React.ReactNode;
   statusTag?: React.ReactNode;
   loading?: boolean;
+  fillHeight?: boolean;
+  showClose?: boolean;
 }
 const DrawerBoxContent = ({
   heading,
@@ -17,6 +21,8 @@ const DrawerBoxContent = ({
   actionDropdown,
   statusTag,
   loading,
+  fillHeight = false,
+  showClose = false,
 }: DrawerBoxContentProps) => {
   return (
     <div className="flex flex-col flex-1 min-h-0 mt-0">
@@ -35,12 +41,22 @@ const DrawerBoxContent = ({
           {loading && <Spinner className="w-4 h-4" />}
         </div>
         {actionDropdown && <div>{actionDropdown}</div>}
+        {showClose && (
+          <RightDrawerClose>
+            <div className="size-9 rounded-full p-sm sidebar-link bg-white hover:bg-storey-foreground flex justify-center items-center text-outline cursor-pointer">
+              <X size={20} />
+            </div>
+          </RightDrawerClose>
+        )}
       </div>
 
-      {/* Scrollable content area */}
-      <ScrollArea isSidebar className="flex-1 min-h-0 overflow-y-auto">
-        <div className="px-xl">{content}</div>
-      </ScrollArea>
+      {fillHeight ? (
+        <div className="flex-1 min-h-0 px-xl overflow-hidden">{content}</div>
+      ) : (
+        <ScrollArea isSidebar className="flex-1 min-h-0 overflow-y-auto">
+          <div className="px-xl">{content}</div>
+        </ScrollArea>
+      )}
     </div>
   );
 };

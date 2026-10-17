@@ -91,7 +91,7 @@ export const formatCurrency = (value: string | number) => {
 
 export const formatOrderDate = (dateStr: string) => {
   try {
-    return format(new Date(dateStr), "dd/MM/yyyy. h:mmaaa");
+    return format(new Date(dateStr), "dd/MM/yyyy.");
   } catch {
     return dateStr;
   }
@@ -99,15 +99,22 @@ export const formatOrderDate = (dateStr: string) => {
 
 export const getItemStatusStyles = (status = "") => {
   switch (status?.toUpperCase()) {
-    // case "COMPLETED":
     case "DELIVERED":
+    case "COMPLETED":
       return {
         styles:
           "table-tag border-border-accent bg-tag-added text-brand-primary!",
         text: "Completed",
       };
+    case "PAID":
+      return {
+        styles:
+          "table-tag border-border-accent bg-tag-added text-brand-primary!",
+        text: "Paid",
+      };
     case "SHIPPED":
     case "SOURCING":
+    case "IN_PROGRESS":
       return {
         styles: "table-tag border-border-accent bg-tag-queue text-brand-signal",
         text: "In Progress",
@@ -117,15 +124,10 @@ export const getItemStatusStyles = (status = "") => {
         styles: "table-tag border-border-accent bg-tag-queue text-destructive",
         text: "Pending",
       };
-    case "PAID":
-      return {
-        styles: "table-tag border-border-accent bg-tag-queue text-destructive",
-        text: "Paid",
-      };
     default:
       return {
         styles: "table-tag border-border-accent bg-[#F7F7F7] text-body",
-        text: "Cancelled",
+        text: status || "Cancelled",
       };
   }
 };
@@ -133,6 +135,8 @@ export const getItemStatusStyles = (status = "") => {
 export const getOrderStatusStyles = (status = "") => {
   switch (status?.toUpperCase()) {
     case "COMPLETED":
+    //For order assignment status(Procurement)
+    case "ACCEPTED":
       return {
         styles:
           "table-tag border-border-main bg-storey-foreground text-heading!",
@@ -162,8 +166,8 @@ export const getOrderStatusStyles = (status = "") => {
       };
     case "PENDING_PAYMENT":
       return {
-        styles: "table-tag border-border-main bg-tag-draft text-body-passive",
-        text: "Initiated",
+        styles: "table-tag border-border-accent bg-tag-queue text-brand-signal",
+        text: "Pending",
       };
     default:
       return {
@@ -173,6 +177,28 @@ export const getOrderStatusStyles = (status = "") => {
   }
 };
 
+export const getOrderAssignmentStatusStyles = (status = "") => {
+  switch (status?.toUpperCase()) {
+    case "ACCEPTED":
+      return {
+        styles:
+          "table-tag border-border-main bg-storey-foreground text-heading!",
+        text: "Processing",
+      };
+    // case "PENDING_ACCEPTANCE":
+    // case "REASSIGNED":
+    //   return {
+    //     styles:
+    //       "table-tag border-border-main bg-storey-foreground text-heading!",
+    //     text: "Pending",
+    //   };
+    default:
+      return {
+        styles: "table-tag border-border-main bg-tag-draft text-body-passive",
+        text: "Unassigned",
+      };
+  }
+};
 
 export const getUserTagStyles = (value: string = "ADMIN") => {
   if (value === "SUPER_ADMIN") {

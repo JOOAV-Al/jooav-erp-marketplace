@@ -21,7 +21,7 @@ const RightDrawerOverlay = React.forwardRef<
     ref={ref}
     className={cn(
       "fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-      className
+      className,
     )}
     {...props}
   />
@@ -64,23 +64,25 @@ const RightDrawerContent = React.forwardRef<
         )}
         {...props}
       >
-        {showHeader && <div
-          style={{
-            background: customImage
-              ? `url(${customImage})`
-              : `url("/dashboard/drawer-top-img.svg")`,
-          }}
-          className="h-24 rounded-t-2xl p-main"
-        >
-          <div className="flex justify-between items-center">
-            <div></div>
-            <RightDrawerClose>
-              <div className="size-9 rounded-full p-sm sidebar-link bg-white hover:bg-storey-foreground flex justify-center items-center text-outline cursor-pointer">
-                <X size={20} />
-              </div>
-            </RightDrawerClose>
+        {showHeader && (
+          <div
+            style={{
+              background: customImage
+                ? `url(${customImage})`
+                : `url("/dashboard/drawer-top-img.svg")`,
+            }}
+            className="h-24 rounded-t-2xl p-main"
+          >
+            <div className="flex justify-between items-center">
+              <div></div>
+              <RightDrawerClose>
+                <div className="size-9 rounded-full p-sm sidebar-link bg-white hover:bg-storey-foreground flex justify-center items-center text-outline cursor-pointer">
+                  <X size={20} />
+                </div>
+              </RightDrawerClose>
+            </div>
           </div>
-        </div>}
+        )}
         {children}
       </DialogPrimitive.Content>
     </RightDrawerPortal>
@@ -121,7 +123,7 @@ const RightDrawerTitle = React.forwardRef<
     ref={ref}
     className={cn(
       "text-lg font-semibold leading-none tracking-tight",
-      className
+      className,
     )}
     {...props}
   />

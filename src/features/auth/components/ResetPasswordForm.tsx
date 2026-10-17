@@ -35,7 +35,6 @@ export function ResetPasswordForm() {
   const router = useRouter();
   const dispatch = useDispatch();
   const params = useSearchParams();
-  const otp = params.get("otp");
   const token = params.get("token");
 
   const form = useForm<z.infer<typeof useResetPasswordSchema>>({
@@ -57,22 +56,22 @@ export function ResetPasswordForm() {
 
   const onSubmit = async (values: z.infer<typeof useResetPasswordSchema>) => {
     const response = await resetPassword({
-      token: otp ?? token ?? "",
+      token: token ?? "",
       password: values.password,
     });
     dispatch(
       setCredentials({
         user: response?.data.user,
         token: response?.data.token,
-      })
+      }),
     );
-    router.push("/dashboard");
+    router.push("/login");
   };
 
   const watchedPassword = form.watch("password");
 
   return (
-    <div className="auth-card shadow-card flex flex-col gap-7 aspect-370/530 sm:aspect-420/530 min-h-[530px] sm:min-h-[480px] max-h-[680px]">
+    <div className="auth-card shadow-card flex flex-col gap-7 h-[530px]">
       <AuthCardHeader
         header="Create password"
         description="Create a new password for your login"

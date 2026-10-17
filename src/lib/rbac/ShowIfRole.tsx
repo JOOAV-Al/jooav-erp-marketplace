@@ -13,5 +13,5 @@ export const ShowIfRole = ({ roles, children }: ShowIfRoleProps) => {
 
   if (!userRole) return null;
 
-  return roles.includes(userRole) ? <>{children}</> : null;
+  return (roles as readonly string[]).includes(userRole) ? <>{children}</> : null;
 };

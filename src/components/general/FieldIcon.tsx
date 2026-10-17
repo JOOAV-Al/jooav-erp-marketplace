@@ -1,14 +1,18 @@
-import { LucideProps, Package } from "lucide-react";
-import React, { ForwardRefExoticComponent, RefAttributes } from "react";
+import React from "react";
+import { LucideIcon } from "lucide-react";
 
 interface FieldIconProps {
-  Icon?: ForwardRefExoticComponent<
-    Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>
-  >;
+  Icon: LucideIcon;
   className?: string;
 }
-const FieldIcon = ({ Icon=Package }: FieldIconProps) => {
-  return <Icon className={`h-5 w-5 text-outline-passive `} strokeWidth={2} />;
+
+const FieldIcon: React.FC<FieldIconProps> = ({ Icon, className }) => {
+  return (
+    <Icon
+      className={className || "h-5 w-5 text-gray-400"}
+      strokeWidth={2}
+    />
+  );
 };
 
 export default FieldIcon;

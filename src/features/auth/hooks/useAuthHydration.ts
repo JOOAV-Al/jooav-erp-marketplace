@@ -5,14 +5,14 @@ import { logout, setCredentials } from "@/redux/slices/authSlice";
 import Cookies from "js-cookie"
 import { useRouter } from "next/navigation";
 
-export const useAuthHydration = () => {
+export const useAuthHydration = ({isMarketPlace=false}: {isMarketPlace?: boolean}) => {
   const dispatch = useDispatch();
   const router = useRouter()
 
   useEffect(() => {
     const hydrate = async () => {
       try {
-        const res = await api.get("/admin/auth/me");
+        const res = await api.get("/auth/profile");
 
         dispatch(
           setCredentials({
@@ -21,8 +21,10 @@ export const useAuthHydration = () => {
           })
         );
       } catch {
-        dispatch(logout());
-        router.push("/super-admin/login")
+        if(!isMarketPlace) {
+          dispatch(logout());
+          router.push("/login")
+        }
       }
     };
 

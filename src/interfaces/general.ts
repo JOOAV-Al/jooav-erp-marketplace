@@ -1,4 +1,5 @@
 // import { Role } from "@/lib/rbac/roles";
+import type { ReactNode } from "react";
 
 export interface GeneralFetchingParams {
   page?: number;
@@ -12,8 +13,11 @@ export interface GeneralFetchingParams {
   manufacturerId?: string;
   sortBy?: string;
   sortOrder?: string;
+  priceSort?: string;
   brandId?: string;
   categoryId?: string;
+  categoryIds?: string;
+  subcategoryIds?: string;
   variant?: string;
   isActive?: boolean;
   includeRelations?: boolean;
@@ -21,6 +25,26 @@ export interface GeneralFetchingParams {
   orderNumber?: string;
   includeProductCount?: boolean;
   includeChildren?: boolean;
+}
+
+export interface MutationResponse<T> {
+  message: string;
+  status: string;
+  success: boolean;
+  data: T;
+}
+
+export interface ConfirmationData {
+  message: string;
+  success: boolean;
+  paymentDetails: {
+    transactionReference: string;
+    // Number, not string: the backend normalizes provider amounts to numbers
+    // before they are returned, so `amountPaid` arrives as a number.
+    amountPaid: number;
+    paidOn: string;
+    paymentMethod: string;
+  };
 }
 
 export interface PaginatedResponse<T> {
@@ -46,26 +70,10 @@ export interface PaginatedResponse<T> {
   }
 }
 export interface PaginatedObjectResponse<T> {
-  status: string;
-  message: string;
-  success: boolean;
-  data: T;
-  meta: {
-    page: number;
-    limit: number;
-    totalItems: number;
-    nextPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  }
-  pagination: {
-    page: number;
-    limit: number;
-    totalItems: number;
-    nextPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  }
+  result: T;
+  count: number;
+  next: boolean;
+  prev: boolean;
 }
 
 export interface PaginatedOrdersResponse<T> {
@@ -92,13 +100,6 @@ export interface PaginatedOrdersResponse<T> {
   // prev: boolean;
 }
 
-export interface MutationResponse<T> {
-  message: string;
-  status: string;
-  success: boolean;
-  data: T;
-}
-
 export interface DefaultBulkMutationData {
   id: string;
   success: boolean;
@@ -120,9 +121,9 @@ export interface Tab {
   value: string;
   label: string;
   heading?: string;
-  content: React.ReactNode;
-  actionDropdown?: React.ReactNode;
-  statusTag?: React.ReactNode;
+  content: ReactNode;
+  actionDropdown?: ReactNode;
+  statusTag?: ReactNode;
   loading?: boolean
   /** 
    * The `id` of the <form> inside this tab's content.

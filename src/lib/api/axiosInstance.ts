@@ -171,7 +171,7 @@ axiosInstance.interceptors.response.use(
 
         // Call refresh endpoint
         const refreshResponse = await axios.post<RefreshTokenResponse>(
-          `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/admin/auth/refresh`,
+          `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/auth/refresh`,
           { refreshToken },
           { 
             withCredentials: true,
@@ -228,65 +228,45 @@ axiosInstance.interceptors.response.use(
     /* ============================
        SPECIFIC STATUS HANDLERS
     ============================ */
-    switch (status) {
-      case 403:
-        // Forbidden - user doesn't have permission
-        if (!originalRequest.noToast) {
-          toast.error("Failed", {
-            style: { backgroundColor: '#F43F5E', borderRadius: "12px" },
-            description: "You don't have permission to perform this action",
-            className: "force-white-toast",
-          })
-        }
-        break;
+    // switch (status) {
+    //   case 403:
+    //     // Forbidden - user doesn't have permission
+    //     if (!originalRequest.noToast) {
+    //       toast.error("You don't have permission to perform this action");
+    //     }
+    //     break;
 
-      case 404:
-        // Not found
-        if (!originalRequest.noToast && isMutation) {
-          toast.error("Failed", {
-            style: { backgroundColor: '#F43F5E', borderRadius: "12px" },
-            description: "The requested resource was not found",
-            className: "force-white-toast",
-          })
-        }
-        break;
+    //   case 404:
+    //     // Not found
+    //     if (!originalRequest.noToast && isMutation) {
+    //       toast.error("The requested resource was not found");
+    //     }
+    //     break;
 
-      case 422:
-        // Validation error
-        if (!originalRequest.noToast) {
-          toast.error("Failed", {
-            style: { backgroundColor: '#F43F5E', borderRadius: "12px" },
-            description: "Please check your input and try again",
-            className: "force-white-toast",
-          })
-        }
-        break;
+    //   case 422:
+    //     // Validation error
+    //     if (!originalRequest.noToast) {
+    //       toast.error("Please check your input and try again");
+    //     }
+    //     break;
 
-      case 429:
-        // Rate limit
-        if (!originalRequest.noToast) {
-          toast.error("Failed", {
-            style: { backgroundColor: '#F43F5E', borderRadius: "12px" },
-            description: "Too many requests. Please try again later",
-            className: "force-white-toast",
-          })
-        }
-        break;
+    //   case 429:
+    //     // Rate limit
+    //     if (!originalRequest.noToast) {
+    //       toast.error("Too many requests. Please try again later");
+    //     }
+    //     break;
 
-      case 500:
-      case 502:
-      case 503:
-      case 504:
-        // Server errors
-        if (!originalRequest.noToast) {
-          toast.error("Failed", {
-            style: { backgroundColor: '#F43F5E', borderRadius: "12px" },
-            description: "Server error. Please try again later",
-            className: "force-white-toast",
-          })
-        }
-        break;
-    }
+    //   case 500:
+    //   case 502:
+    //   case 503:
+    //   case 504:
+    //     // Server errors
+    //     if (!originalRequest.noToast) {
+    //       toast.error("Server error. Please try again later");
+    //     }
+    //     break;
+    // }
 
     return Promise.reject(error);
   }
@@ -329,7 +309,7 @@ export const refreshAccessToken = async (): Promise<boolean> => {
     }
 
     const response = await axios.post<RefreshTokenResponse>(
-      `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/admin/auth/refresh`,
+      `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/auth/refresh`,
       { refreshToken },
       { withCredentials: true }
     );
@@ -357,7 +337,7 @@ export const isAuthenticated = (): boolean => {
 export const logout = (): void => {
   clearAuthTokens();
   // Optional: call backend logout endpoint
-  // api.post("/admin/auth/logout", {}, { noToast: true, noAuth: true });
+  // api.post("/auth/logout", {}, { noToast: true, noAuth: true });
 };
 
 export default axiosInstance;
