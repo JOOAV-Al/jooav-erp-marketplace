@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useGetOrders } from "@/features/marketplace/services/marketplace.api";
 import { Order } from "@/features/marketplace/types";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,16 +8,19 @@ import OrdersGroupedTable from "@/features/marketplace/components/OrdersGroupedT
 import SearchBox from "@/components/general/SearchBox";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useRouter, useSearchParams } from "next/navigation";
-
-type TabType = "PENDING" | "PROCESSING" | "FULFILLED" | "PENDING_PAYMENT";
+import {
+  AUTO_TABS,
+  filterOrdersByTab,
+  OrderTabType,
+} from "@/features/marketplace/services/orderTabs";
 
 export default function OrderProcessingContent() {
   const searchParams = useSearchParams();
   const autoTab = searchParams?.get("tab");
   const [page, setPage] = useState<number>(1);
   const [query, setQuery] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<TabType>(
-    autoTab === "incomplete" ? "PENDING_PAYMENT" : "PENDING",
+  const [activeTab, setActiveTab] = useState<OrderTabType>(
+    AUTO_TABS[autoTab ?? ""] ?? "PENDING",
   );
   const debouncedQuery = useDebounce(query);
   const router = useRouter();
@@ -30,53 +33,19 @@ export default function OrderProcessingContent() {
 
   const allOrders = data?.data?.orders as Order[] | undefined;
 
-  const filteredOrders = useMemo(() => {
-    const availableOrders = allOrders ?? [];
-
-    return availableOrders.filter((order: Order) => {
-      // Always exclude empty draft orders — these are leftover cart artifacts
-      if (
-        order.status === "DRAFT" ||
-        !order.items ||
-        order.items.length === 0
-      ) {
-        return false;
-      }
-      const status = order.status;
-      // const assignmentStatus = order.assignmentStatus;
-      if (activeTab === "PENDING") {
-        return ["CONFIRMED"].includes(status);
-      }
-      if (activeTab === "PROCESSING") {
-        return ["IN_PROGRESS"].includes(status);
-      }
-      if (activeTab === "PENDING_PAYMENT") {
-        return ["PENDING_PAYMENT"].includes(status);
-      }
-      if (activeTab === "FULFILLED") {
-        return ["COMPLETED"].includes(status);
-      }
-      return false;
-    });
-  }, [allOrders, activeTab]);
+  const filteredOrders = useMemo(
+    () => filterOrdersByTab(allOrders ?? [], activeTab),
+    [allOrders, activeTab],
+  );
 
   const handleTabChange = (value: string) => {
-    setActiveTab(value as TabType);
+    setActiveTab(value as OrderTabType);
   };
 
   const handleInitiatePayment = (orderNumber: string) => {
     if (!orderNumber) return;
     router.push(`/dashboard/checkout?orderNumber=${orderNumber}`);
   };
-
-  // useEffect(() => {
-  //   if (!autoTab) return;
-  //   if (autoTab === "incomplete") {
-  //     console.log("running")
-  //     setActiveTab("PENDING_PAYMENT");
-  //   }
-  // }, [autoTab]);
-  console.log(autoTab)
 
   const tabTriggerClass =
     "p-main! bg-transparent! data-[state=active]:bg-transparent! shadow-none! data-[state=active]:shadow-none! border-none! rounded-none! font-semibold text-body-passive data-[state=active]:text-heading text-base leading-[1.2] tracking-[0.01em] hover:bg-transparent!";
@@ -105,6 +74,9 @@ export default function OrderProcessingContent() {
             </TabsTrigger>
             <TabsTrigger value="PENDING_PAYMENT" className={tabTriggerClass}>
               Initiate payment
+            </TabsTrigger>
+            <TabsTrigger value="UNDER_REVIEW" className={tabTriggerClass}>
+              Under review
             </TabsTrigger>
           </TabsList>
           <SearchBox
