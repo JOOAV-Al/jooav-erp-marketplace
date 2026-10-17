@@ -13,11 +13,9 @@ import { ShoppingCart, Menu } from "lucide-react";
 import Cookies from "js-cookie";
 import { cn, truncateText } from "@/lib/utils";
 import DashboardDrawer from "@/components/general/DashboardDrawer";
-import {
-  useGetOrderDetails,
-  useUpdateDraftOrder,
-} from "@/features/marketplace/services/marketplace.api";
-import { CreateOrderPayload, OrderItem } from "@/features/marketplace/types";
+import { useGetOrderDetails } from "@/features/marketplace/services/marketplace.api";
+import { useRemoveCartItem } from "@/features/marketplace/services/cart.api";
+import { OrderItem } from "@/features/marketplace/types";
 import DrawerBoxContent from "@/components/general/DrawerBoxContent";
 import CartOrderList from "@/features/marketplace/components/CartOrderList";
 import {
@@ -41,11 +39,7 @@ export default function MarketplaceNavbar() {
   const isAuthenticated = auth.isAuthenticated;
   const user = auth.user;
   const orderNumber = auth.cartDraftNumber ?? "";
-  const {
-    data,
-    refetch: refetchDraft,
-    isPending: draftCartPending,
-  } = useGetOrderDetails({
+  const { data, isPending: draftCartPending } = useGetOrderDetails({
     orderNumber: orderNumber ?? "",
   });
   const userDraftOrder = data?.data;
@@ -53,32 +47,18 @@ export default function MarketplaceNavbar() {
   const [open, setOpen] = useState(false);
   const [openLoginForm, setOpenLoginForm] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { mutateAsync: updateDraftOrder, isPending: updating } =
-    useUpdateDraftOrder();
+  const { mutate: removeCartItem } = useRemoveCartItem();
 
   // Functions
   const cartCount = userDraftOrder?.items?.length || 0;
-  // const cartCount = useSelector((state: RootState) =>
-  //   state.cart.items.reduce((sum, i) => sum + i.qty, 0),
-  // );
 
-  const handleRemoveItem = async (item: OrderItem) => {
-    if (!item) return;
-    const { product, quantity } = item;
-    const payload: CreateOrderPayload = {
-      item: {
-        productId: product?.id,
-        itemId: item?.id,
-        quantity,
-        action: "REMOVE",
-      },
-    };
-
-    await updateDraftOrder({
-      payload,
-      id: orderNumber,
+  const handleRemoveItem = (item: OrderItem) => {
+    if (!item || !orderNumber) return;
+    removeCartItem({
+      orderNumber,
+      itemId: item.id,
+      productId: item.product?.id,
     });
-    refetchDraft();
   };
 
   const handleLogout = () => {
@@ -104,7 +84,6 @@ export default function MarketplaceNavbar() {
   ];
 
   const hideCheckout =
-    updating ||
     draftCartPending ||
     (userDraftOrder?.items && userDraftOrder?.items?.length <= 0);
   return (
@@ -142,7 +121,7 @@ export default function MarketplaceNavbar() {
 
           {/* Right side */}
           <div className="flex items-center gap-4 md:gap-lg shrink-0">
-            {/* Cart icon — opens CartDrawer */}
+            {/* Cart icon — opens the cart drawer */}
             <button
               onClick={() => {
                 if (isAuthenticated) {

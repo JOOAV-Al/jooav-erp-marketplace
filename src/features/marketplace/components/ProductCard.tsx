@@ -1,26 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { ShoppingCart } from 'lucide-react';
-import { useDispatch, useSelector } from 'react-redux';
-import { addToCart } from '@/redux/slices/cartSlice';
-import { updateCartNumber } from '@/redux/slices/authSlice';
+import { useSelector } from 'react-redux';
 import { cn } from '@/lib/utils';
 import { RootState } from '@/redux/store';
-import {
-  useCreateDraftOrder,
-  useGetOrderDetails,
-  useUpdateDraftOrder,
-} from '@/features/marketplace/services/marketplace.api';
+import { useAddToCart } from '@/features/marketplace/services/cart.api';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import AppImage from '@/components/general/AppImage';
-import {
-  CreateOrderPayload,
-  Order,
-  Product,
-} from '@/features/marketplace/types';
-import { Spinner } from '@/components/ui/spinner';
+import { Order } from '@/features/marketplace/types';
 
 export interface ProductCardData {
   id: string;
@@ -38,7 +28,6 @@ interface ProductCardProps {
   className?: string;
   href?: string;
   userDraftCart?: Order;
-  refetch?: () => void;
 }
 
 function formatPrice(amount: number, currency = 'NGN') {
@@ -54,28 +43,20 @@ export default function ProductCard({
   product,
   className,
   userDraftCart,
-  refetch,
 }: ProductCardProps) {
   const auth = useSelector((state: RootState) => state.auth);
   const isAuthenticated = auth.isAuthenticated;
   const user = auth.user;
-  const draftCart = auth.cartDraftNumber;
-  const dispatch = useDispatch();
   const router = useRouter();
-  // const { data, refetch } = useGetOrderDetails({
-  //   orderNumber: draftCart ?? "",
-  // });
-  // const userDraftCart = data?.data;
   const existingItem = userDraftCart?.items?.find(
     i => i?.product?.id === product?.id,
   );
 
-  const { mutateAsync: createDraftOrder, isPending: creating } =
-    useCreateDraftOrder();
-  const { mutateAsync: updateDraftOrder, isPending: updating } =
-    useUpdateDraftOrder();
+  const { mutate: addToCart, isPending: adding } = useAddToCart();
+  const [justAdded, setJustAdded] = useState(false);
+  const showAsAdded = !!existingItem || justAdded;
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = () => {
     const itemToSave = {
       id: product.id,
       productId: product.id,
@@ -87,48 +68,34 @@ export default function ProductCard({
       currency: 'NGN',
     };
 
-    //If authenticated, save cart as draft and update
     if (isAuthenticated) {
       if (user?.role !== 'WHOLESALER') {
         toast('Only wholesale accounts can add items to a cart');
         return;
       }
 
-      const existingItem = userDraftCart?.items?.find(
-        i => i?.product?.id === product?.id,
-      );
       if (existingItem) {
         toast('Product already in cart');
         return;
       }
 
-      // No draft cart yet — create one with this item, then keep its number
-      if (!draftCart) {
-        const created = await createDraftOrder({
-          items: [{ productId: product?.id, quantity: 10 }],
-        });
-        const orderNumber = created.data.data?.order?.orderNumber;
-        if (created.data.status === 'success' && orderNumber) {
-          dispatch(updateCartNumber({ orderNumber }));
-        }
-        return;
-      }
-
-      const payload: CreateOrderPayload = {
-        item: {
-          action: 'ADD',
-          productId: product?.id,
+      // Optimistic: the card shows "added" immediately while the cart syncs
+      // to the draft order in the background.
+      setJustAdded(true);
+      addToCart(
+        {
+          product: {
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            thumbnail: product.image,
+            packSizeName: product.size,
+            packTypeName: product.type,
+          },
           quantity: 10,
         },
-      };
-
-      const res = await updateDraftOrder({
-        payload,
-        id: draftCart,
-      });
-      if (res.data.status === 'success') {
-        refetch?.();
-      }
+        { onSettled: () => setJustAdded(false) },
+      );
     } else {
       // Else, save to local storage then retrieve and save as draft after login
       localStorage.setItem('tempCartItem', JSON.stringify(itemToSave));
@@ -163,7 +130,7 @@ export default function ProductCard({
             e.stopPropagation();
             handleAddToCart();
           }}
-          disabled={updating || creating}
+          disabled={adding || justAdded}
           aria-label="Add to cart"
           className={cn(
             'absolute bottom-2 right-2 z-10',
@@ -173,14 +140,10 @@ export default function ProductCard({
             'translate-y-2 group-hover:translate-y-0',
             'transition-all duration-200',
             'hover:bg-primary hover:text-white cursor-pointer',
-            `${existingItem ? 'bg-primary text-white' : ''}`,
+            `${showAsAdded ? 'bg-primary text-white' : ''}`,
           )}
         >
-          {updating || creating ? (
-            <Spinner className='hover:text-white' />
-          ) : (
-            <ShoppingCart className="h-4 w-4" strokeWidth={2} />
-          )}
+          <ShoppingCart className="h-4 w-4" strokeWidth={2} />
         </button>
       </div>
 

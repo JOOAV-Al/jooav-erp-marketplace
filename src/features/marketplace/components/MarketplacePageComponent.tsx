@@ -52,14 +52,10 @@ export default function MarketplacePageComponent() {
     useFetchCategories();
 
   const draftCart = auth.cartDraftNumber;
-  const { data, refetch } = useGetOrderDetails({
+  const { data } = useGetOrderDetails({
     orderNumber: draftCart ?? "",
   });
   const userDraftCart = data?.data;
-
-  // const cartTotal = useSelector((state: RootState) =>
-  //   state.cart.items.reduce((sum, i) => sum + i.qty, 0),
-  // );
 
   // Build category tab list from API
   const categories = [
@@ -145,7 +141,6 @@ export default function MarketplacePageComponent() {
           {products.map((product: Product) => (
             <ProductCard
               userDraftCart={userDraftCart}
-              refetch={refetch}
               key={product.id}
               product={{
                 id: product.id,

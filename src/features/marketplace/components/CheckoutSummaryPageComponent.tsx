@@ -13,6 +13,7 @@ import {
   useReInitiateOrderPayment,
   useUpdateDraftOrder,
 } from "@/features/marketplace/services/marketplace.api";
+import { useRemoveCartItem } from "@/features/marketplace/services/cart.api";
 import { Button } from "@/components/ui/button";
 import ProductDetailSkeleton from "@/features/marketplace/components/ProductDetailSkeleton";
 import { RootState } from "@/redux/store";
@@ -53,8 +54,7 @@ export default function CheckoutSummaryPageComponent() {
   const deliveryAddress = userDraftCart?.deliveryAddress?.address ?? "";
   const [address, setAddress] = useState(deliveryAddress);
 
-  const { mutateAsync: updateDraftOrder, isPending: removing } =
-    useUpdateDraftOrder();
+  const { mutate: removeCartItem, isPending: removing } = useRemoveCartItem();
   const { mutateAsync: updateAddress, isPending: updatingAddress } =
     useUpdateDraftOrder();
   const { mutateAsync: initiatePayment, isPending: initiatingPayment } =
@@ -72,21 +72,17 @@ export default function CheckoutSummaryPageComponent() {
   dummyFiveDaysEstimated.setDate(dummyFiveDaysEstimated.getDate() + 5);
   const allowedPreviousCheckoutStatus = ["DRAFT", "PENDING_PAYMENT"]
 
-  const handleRemoveItem = async (item: OrderItem) => {
+  const handleRemoveItem = (item: OrderItem) => {
     if (!item) return;
-    const payload: CreateOrderPayload = {
-      item: {
-        action: "REMOVE",
-        productId: item?.id,
-        quantity: item?.quantity,
-        itemId: item?.id,
-      },
-    };
-    await updateDraftOrder({
-      payload,
-      id: user?.wholesalerProfile?.draftCart ?? "",
+    const orderNumber = userDraftCart?.orderNumber ?? selectedOrderNumber;
+    if (!orderNumber) return;
+    // Optimistic: the item leaves the list on click and the draft order syncs
+    // in the background.
+    removeCartItem({
+      orderNumber,
+      itemId: item.id,
+      productId: item.product?.id,
     });
-    refetch();
   };
 
   const handleUpdateAddress = async () => {
