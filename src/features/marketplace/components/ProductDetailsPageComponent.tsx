@@ -12,8 +12,6 @@ import {
   useCreateDraftOrder,
   useFetchProduct,
   useGetOrderDetails,
-  useInitiateOrderPayment,
-  useReInitiateOrderPayment,
   useUpdateDraftOrder,
 } from "@/features/marketplace/services/marketplace.api";
 import { Button } from "@/components/ui/button";
@@ -279,8 +277,6 @@ export default function ProductDetailPageComponent() {
       router.push(`/dashboard/checkout?orderNumber=${orderNumber}`);
     }
   };
-
-  console.log(images);
 
   return (
     <div className="max-w-full mx-auto py-8 px-4">
