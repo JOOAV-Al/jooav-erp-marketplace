@@ -82,7 +82,14 @@ export default function ManualPaymentPageComponent() {
 
   return (
     <div className="max-w-app mx-auto py-8 px-4 flex flex-col gap-main">
-      <Link href="/dashboard/orders?tab=incomplete" className={BACK_LINK_CLASS}>
+      <Link
+        href={
+          isClaimPending
+            ? "/dashboard/orders?tab=review"
+            : "/dashboard/orders?tab=incomplete"
+        }
+        className={BACK_LINK_CLASS}
+      >
         Back
       </Link>
 

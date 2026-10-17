@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ShoppingCart, ShoppingBag } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
-import { addToCart } from "@/redux/slices/cartSlice";
 import { updateCartNumber } from "@/redux/slices/authSlice";
 import {
   useCreateDraftOrder,
@@ -14,10 +13,14 @@ import {
   useGetOrderDetails,
   useUpdateDraftOrder,
 } from "@/features/marketplace/services/marketplace.api";
+import {
+  useAddToCart,
+  useUpdateCartQuantity,
+} from "@/features/marketplace/services/cart.api";
 import { Button } from "@/components/ui/button";
 import ProductDetailSkeleton from "@/features/marketplace/components/ProductDetailSkeleton";
 import { RootState } from "@/redux/store";
-import { CreateOrderPayload, Product } from "@/features/marketplace/types";
+import { Product } from "@/features/marketplace/types";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -41,15 +44,16 @@ export default function ProductDetailPageComponent() {
   const dispatch = useDispatch();
 
   const { data } = useGetOrderDetails({ orderNumber: draftCart ?? "" });
-  const { data: response, isLoading, refetch } = useFetchProduct(id);
+  const { data: response, isLoading } = useFetchProduct(id);
   // Support both { data: Product } and plain Product shapes
   const product = response?.data ?? response;
   const userDraftCart = data?.data;
 
   const { mutateAsync: createDraftOrder, isPending: creatingDraft } =
     useCreateDraftOrder();
-  const { mutateAsync: updateCart, isPending: updatingCart } =
-    useUpdateDraftOrder();
+  const { mutate: addToCart, isPending: addingToCart } = useAddToCart();
+  const { mutate: updateCartQuantity, isPending: updatingQuantity } =
+    useUpdateCartQuantity();
   const { mutateAsync: updateForBuyNow, isPending: buyingNow } =
     useUpdateDraftOrder();
 
@@ -103,19 +107,7 @@ export default function ProductDetailPageComponent() {
     product.packType?.name,
   ].filter(Boolean) as string[];
 
-  const handleAddToCart = async (item: Product, action: string) => {
-    //If authenticated, save cart as draft and update
-    const itemToSave = {
-      id: product.id,
-      productId: product.id,
-      name: product.name,
-      image: product.thumbnail || images[0],
-      price,
-      qty: Number(qty),
-      size: product.packSize?.name,
-      type: product.packType?.name,
-      currency: "NGN",
-    };
+  const handleAddToCart = (item: Product, action: string) => {
     if (isAuthenticated) {
       if (user?.role !== "WHOLESALER") {
         toast("Only wholesale accounts can add items to a cart");
@@ -130,46 +122,34 @@ export default function ProductDetailPageComponent() {
         return;
       }
 
-      // No draft cart yet — create one with this item, then keep its number
-      if (!draftCart) {
-        if (action !== "ADD") return;
-        const created = await createDraftOrder({
-          items: [{ productId: item.id, quantity: Number(qty) }],
-        });
-        const orderNumber = created.data.data?.order?.orderNumber;
-        if (created.data.status === "success" && orderNumber) {
-          dispatch(updateCartNumber({ orderNumber }));
-          dispatch(addToCart(itemToSave));
-        }
-        return;
-      }
-
-      const payload: CreateOrderPayload = {
-        item: {
-          action,
-          productId: item?.id,
-          quantity: Number(qty),
-          ...(action === "UPDATE"
-            ? {
-                itemId: existingItem?.id,
-              }
-            : {}),
+      // Optimistic: the cart cache updates on click and the draft order syncs
+      // in the background (the first item creates the draft).
+      addToCart({
+        product: {
+          id: product.id,
+          name: product.name,
+          price,
+          thumbnail: product.thumbnail || images[0],
+          images,
+          variantName: product.variant?.name,
+          packSizeName: product.packSize?.name,
+          packTypeName: product.packType?.name,
         },
-      };
-
-      // "add" or "update" — PATCH /orders/:id
-      const res = await updateCart({
-        payload,
-        id: draftCart,
+        quantity: Number(qty),
       });
-      if (res.data.status === "success") {
-        if (action === "ADD") {
-          dispatch(addToCart(itemToSave));
-        }
-        refetch();
-      }
     } else {
       // Else, save to local storage then retrieve and save as draft after login
+      const itemToSave = {
+        id: product.id,
+        productId: product.id,
+        name: product.name,
+        image: product.thumbnail || images[0],
+        price,
+        qty: Number(qty),
+        size: product.packSize?.name,
+        type: product.packType?.name,
+        currency: "NGN",
+      };
       localStorage.setItem("tempCartItem", JSON.stringify(itemToSave));
       router.push("/login?fromCart=true");
     }
@@ -185,7 +165,7 @@ export default function ProductDetailPageComponent() {
 
     // Keep UI responsive; only update after typing stops
     if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
-    updateTimerRef.current = setTimeout(async () => {
+    updateTimerRef.current = setTimeout(() => {
       const nextQty = Number(raw);
 
       if (!raw || nextQty < MIN_QUANTITY) {
@@ -199,20 +179,14 @@ export default function ProductDetailPageComponent() {
       );
       if (!existing) return;
 
-      const payload: CreateOrderPayload = {
-        item: {
-          action: "UPDATE",
-          productId: product.id,
-          itemId: existing.id,
-          quantity: nextQty,
-        },
-      };
-
-      await updateCart({
-        payload,
-        id: user?.wholesalerProfile?.draftCart ?? draftCart,
+      // Optimistic: quantity and totals update on the spot, the draft order
+      // syncs in the background.
+      updateCartQuantity({
+        orderNumber: draftCart,
+        itemId: existing.id,
+        productId: product.id,
+        quantity: nextQty,
       });
-      refetch();
     }, 1600);
   };;
 
@@ -385,7 +359,9 @@ export default function ProductDetailPageComponent() {
               <Button
                 className="w-full gap-4 tracking-[0.02em]"
                 onClick={handleBuyNow}
-                disabled={buyingNow || updatingCart || creatingDraft}
+                disabled={
+                  buyingNow || addingToCart || updatingQuantity || creatingDraft
+                }
               >
                 {buyingNow ? (
                   <>
@@ -401,9 +377,11 @@ export default function ProductDetailPageComponent() {
                 variant="neutral"
                 className="w-full gap-4 text-primary tracking-[0.02em]"
                 onClick={() => handleAddToCart(product, "ADD")}
-                disabled={updatingCart || buyingNow || creatingDraft}
+                disabled={
+                  addingToCart || updatingQuantity || buyingNow || creatingDraft
+                }
               >
-                {updatingCart ? (
+                {addingToCart ? (
                   <>
                     <Spinner /> Updating cart...
                   </>

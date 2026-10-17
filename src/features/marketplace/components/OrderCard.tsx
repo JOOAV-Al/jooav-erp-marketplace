@@ -76,6 +76,7 @@ export function OrderCard({
   const [removingItemId, setRemovingItemId] = useState("");
   const isInventory = pathname.includes("/dashboard/inventory");
   const isCustomerOrders = pathname.includes("/dashboard/orders");
+  const isClaimPending = order.paymentClaimStatus === "PENDING";
   const showInitiatePayment = ["DRAFT", "PENDING_PAYMENT"].includes(
     order.status,
   );
@@ -110,7 +111,8 @@ export function OrderCard({
         </div>
 
         <div className="flex items-center gap-main">
-          {onReorder && (isInventory || showInitiatePayment) && (
+          {onReorder &&
+            (isInventory || (showInitiatePayment && !isClaimPending)) && (
             <Button
               variant="tag"
               size="tag"

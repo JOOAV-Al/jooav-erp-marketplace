@@ -38,15 +38,10 @@ export default function MarketplaceByCategoriesPageComponent() {
   });
 
   const draftCart = auth.cartDraftNumber;
-  const { data: draft, refetch } = useGetOrderDetails({
+  const { data: draft } = useGetOrderDetails({
     orderNumber: draftCart ?? "",
   });
   const userDraftCart = draft?.data;
-
-  //TODO: Wire redux cart to have the draft cart reflect added items immediately
-  const cartTotal = useSelector((state: RootState) =>
-    state.cart.items.reduce((sum, i) => sum + i.qty, 0),
-  );
 
   const handleSubcategoryToggle = (id: string) => {
     setSubcategories((prev) =>
@@ -178,7 +173,6 @@ export default function MarketplaceByCategoriesPageComponent() {
             {products.map((product: Product) => (
               <ProductCard
                 userDraftCart={userDraftCart}
-                refetch={refetch}
                 key={product.id}
                 product={{
                   id: product.id,
