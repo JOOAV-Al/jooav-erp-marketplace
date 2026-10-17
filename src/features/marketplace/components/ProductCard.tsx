@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { ShoppingCart } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCart } from '@/redux/slices/cartSlice';
+import { updateCartNumber } from '@/redux/slices/authSlice';
 import { cn } from '@/lib/utils';
 import { RootState } from '@/redux/store';
 import {
+  useCreateDraftOrder,
   useGetOrderDetails,
   useUpdateDraftOrder,
 } from '@/features/marketplace/services/marketplace.api';
@@ -58,7 +60,7 @@ export default function ProductCard({
   const isAuthenticated = auth.isAuthenticated;
   const user = auth.user;
   const draftCart = auth.cartDraftNumber;
-  // const dispatch = useDispatch();
+  const dispatch = useDispatch();
   const router = useRouter();
   // const { data, refetch } = useGetOrderDetails({
   //   orderNumber: draftCart ?? "",
@@ -68,6 +70,8 @@ export default function ProductCard({
     i => i?.product?.id === product?.id,
   );
 
+  const { mutateAsync: createDraftOrder, isPending: creating } =
+    useCreateDraftOrder();
   const { mutateAsync: updateDraftOrder, isPending: updating } =
     useUpdateDraftOrder();
 
@@ -85,11 +89,28 @@ export default function ProductCard({
 
     //If authenticated, save cart as draft and update
     if (isAuthenticated) {
+      if (user?.role !== 'WHOLESALER') {
+        toast('Only wholesale accounts can add items to a cart');
+        return;
+      }
+
       const existingItem = userDraftCart?.items?.find(
         i => i?.product?.id === product?.id,
       );
       if (existingItem) {
         toast('Product already in cart');
+        return;
+      }
+
+      // No draft cart yet — create one with this item, then keep its number
+      if (!draftCart) {
+        const created = await createDraftOrder({
+          items: [{ productId: product?.id, quantity: 10 }],
+        });
+        const orderNumber = created.data.data?.order?.orderNumber;
+        if (created.data.status === 'success' && orderNumber) {
+          dispatch(updateCartNumber({ orderNumber }));
+        }
         return;
       }
 
@@ -103,7 +124,7 @@ export default function ProductCard({
 
       const res = await updateDraftOrder({
         payload,
-        id: draftCart ?? '',
+        id: draftCart,
       });
       if (res.data.status === 'success') {
         refetch?.();
@@ -142,6 +163,7 @@ export default function ProductCard({
             e.stopPropagation();
             handleAddToCart();
           }}
+          disabled={updating || creating}
           aria-label="Add to cart"
           className={cn(
             'absolute bottom-2 right-2 z-10',
@@ -154,7 +176,7 @@ export default function ProductCard({
             `${existingItem ? 'bg-primary text-white' : ''}`,
           )}
         >
-          {updating ? (
+          {updating || creating ? (
             <Spinner className='hover:text-white' />
           ) : (
             <ShoppingCart className="h-4 w-4" strokeWidth={2} />

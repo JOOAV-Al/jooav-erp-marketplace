@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ShoppingCart, ShoppingBag } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { addToCart } from "@/redux/slices/cartSlice";
+import { updateCartNumber } from "@/redux/slices/authSlice";
 import {
   useCreateDraftOrder,
   useFetchProduct,
@@ -47,6 +48,8 @@ export default function ProductDetailPageComponent() {
   const product = response?.data ?? response;
   const userDraftCart = data?.data;
 
+  const { mutateAsync: createDraftOrder, isPending: creatingDraft } =
+    useCreateDraftOrder();
   const { mutateAsync: updateCart, isPending: updatingCart } =
     useUpdateDraftOrder();
   const { mutateAsync: updateForBuyNow, isPending: buyingNow } =
@@ -116,11 +119,30 @@ export default function ProductDetailPageComponent() {
       currency: "NGN",
     };
     if (isAuthenticated) {
+      if (user?.role !== "WHOLESALER") {
+        toast("Only wholesale accounts can add items to a cart");
+        return;
+      }
+
       const existingItem = userDraftCart?.items?.find(
         (i) => i?.product?.id === item?.id,
       );
       if (existingItem && action === "ADD") {
         toast("Product already in cart");
+        return;
+      }
+
+      // No draft cart yet — create one with this item, then keep its number
+      if (!draftCart) {
+        if (action !== "ADD") return;
+        const created = await createDraftOrder({
+          items: [{ productId: item.id, quantity: Number(qty) }],
+        });
+        const orderNumber = created.data.data?.order?.orderNumber;
+        if (created.data.status === "success" && orderNumber) {
+          dispatch(updateCartNumber({ orderNumber }));
+          dispatch(addToCart(itemToSave));
+        }
         return;
       }
 
@@ -140,7 +162,7 @@ export default function ProductDetailPageComponent() {
       // "add" or "update" — PATCH /orders/:id
       const res = await updateCart({
         payload,
-        id: user?.wholesalerProfile?.draftCart ?? "",
+        id: draftCart,
       });
       if (res.data.status === "success") {
         if (action === "ADD") {
@@ -216,11 +238,16 @@ export default function ProductDetailPageComponent() {
       return;
     }
 
+    if (user?.role !== "WHOLESALER") {
+      toast("Only wholesale accounts can place orders");
+      return;
+    }
+
     // If user already has item in draft cart, directly go checkout
     const existingItem = userDraftCart?.items?.find(
       (i) => i?.product?.id === product.id,
     );
-    const orderId = user?.wholesalerProfile?.draftCart ?? draftCart;
+    const orderId = draftCart;
 
     if (existingItem && orderId) {
       router.push(`/dashboard/checkout?orderNumber=${orderId}`);
@@ -240,6 +267,16 @@ export default function ProductDetailPageComponent() {
       });
       router.push(`/dashboard/checkout?orderNumber=${orderId}`);
       return;
+    }
+
+    // No draft cart yet — create one with this item, then go to checkout
+    const created = await createDraftOrder({
+      items: [{ productId: product.id, quantity: Number(qty) }],
+    });
+    const orderNumber = created.data.data?.order?.orderNumber;
+    if (created.data.status === "success" && orderNumber) {
+      dispatch(updateCartNumber({ orderNumber }));
+      router.push(`/dashboard/checkout?orderNumber=${orderNumber}`);
     }
   };
 
@@ -352,7 +389,7 @@ export default function ProductDetailPageComponent() {
               <Button
                 className="w-full gap-4 tracking-[0.02em]"
                 onClick={handleBuyNow}
-                disabled={buyingNow || updatingCart}
+                disabled={buyingNow || updatingCart || creatingDraft}
               >
                 {buyingNow ? (
                   <>
@@ -368,7 +405,7 @@ export default function ProductDetailPageComponent() {
                 variant="neutral"
                 className="w-full gap-4 text-primary tracking-[0.02em]"
                 onClick={() => handleAddToCart(product, "ADD")}
-                disabled={updatingCart || buyingNow}
+                disabled={updatingCart || buyingNow || creatingDraft}
               >
                 {updatingCart ? (
                   <>
