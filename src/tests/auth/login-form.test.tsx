@@ -21,6 +21,9 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({
     push: pushMock,
   }),
+  useSearchParams: () => ({
+    get: () => null,
+  }),
 }));
 
 // Mock js-cookie
@@ -30,7 +33,18 @@ jest.mock("js-cookie", () => ({
 
 // Mock PasswordInput to a normal input
 jest.mock("@/features/auth/components/PasswordInput", () => {
-  return function MockPasswordInput({ field, placeholder }: any) {
+  return function MockPasswordInput({
+    field,
+    placeholder,
+  }: {
+    field: {
+      value?: string;
+      onChange?: () => void;
+      onBlur?: () => void;
+      name?: string;
+    };
+    placeholder?: string;
+  }) {
     return <input type="password" placeholder={placeholder} {...field} />;
   };
 });
@@ -55,7 +69,7 @@ describe("LoginForm", () => {
     renderWithProviders(<LoginForm toggleForm={toggleFormMock} />);
 
     expect(
-      screen.getByRole("heading", { name: /super-admin login/i })
+      screen.getByRole("heading", { name: /login/i })
     ).toBeInTheDocument();
 
     expect(
@@ -66,7 +80,7 @@ describe("LoginForm", () => {
     ).toBeInTheDocument();
 
     expect(
-      screen.getByRole("button", { name: /admin login/i })
+      screen.getByRole("button", { name: /login/i })
     ).toBeInTheDocument();
   });
 
@@ -80,7 +94,7 @@ describe("LoginForm", () => {
 
     renderWithProviders(<LoginForm toggleForm={toggleFormMock} />);
 
-    await user.click(screen.getByRole("button", { name: /admin login/i }));
+    await user.click(screen.getByRole("button", { name: /login/i }));
 
     expect(await screen.findByText(/enter a valid email/i)).toBeInTheDocument();
 
@@ -97,6 +111,7 @@ describe("LoginForm", () => {
         data: {
           accessToken: "access-token",
           refreshToken: "refresh-token",
+          user: { id: "1", email: "admin@example.com" },
         },
       },
     });
@@ -118,7 +133,7 @@ describe("LoginForm", () => {
       "password123"
     );
 
-    await user.click(screen.getByRole("button", { name: /admin login/i }));
+    await user.click(screen.getByRole("button", { name: /login/i }));
 
     await waitFor(() => {
       expect(loginMock).toHaveBeenCalledWith({
@@ -127,11 +142,15 @@ describe("LoginForm", () => {
       });
     });
 
-    expect(Cookies.set).toHaveBeenCalledWith("authToken", "access-token");
+    expect(Cookies.set).toHaveBeenCalledWith(
+      "authToken",
+      "access-token",
+      expect.anything()
+    );
 
     expect(Cookies.set).toHaveBeenCalledWith("refreshToken", "refresh-token");
 
-    expect(pushMock).toHaveBeenCalledWith("/dashboard");
+    expect(pushMock).toHaveBeenCalledWith("/marketplace");
   });
 
   it("disables button while logging in", () => {

@@ -27,7 +27,18 @@ jest.mock("next/navigation", () => ({
 
 // Mock PasswordInput
 jest.mock("@/features/auth/components/PasswordInput", () => {
-  return function MockPasswordInput({ field, placeholder }: any) {
+  return function MockPasswordInput({
+    field,
+    placeholder,
+  }: {
+    field: {
+      value?: string;
+      onChange?: () => void;
+      onBlur?: () => void;
+      name?: string;
+    };
+    placeholder?: string;
+  }) {
     return <input type="password" placeholder={placeholder} {...field} />;
   };
 });
@@ -109,7 +120,7 @@ describe("ResetPasswordForm", () => {
       });
     });
 
-    expect(pushMock).toHaveBeenCalledWith("/dashboard");
+    expect(pushMock).toHaveBeenCalledWith("/login");
   });
 
   it("disables submit button while loading", () => {
