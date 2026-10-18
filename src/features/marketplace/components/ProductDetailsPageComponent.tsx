@@ -174,16 +174,11 @@ export default function ProductDetailPageComponent() {
         return;
       }
 
-      const existing = userDraftCart.items?.find(
-        (i) => i?.product?.id === product?.id,
-      );
-      if (!existing) return;
-
       // Optimistic: quantity and totals update on the spot, the draft order
-      // syncs in the background.
+      // syncs in the background. The item id is resolved from the live cart
+      // when the request executes (the closure's snapshot can be stale).
       updateCartQuantity({
         orderNumber: draftCart,
-        itemId: existing.id,
         productId: product.id,
         quantity: nextQty,
       });

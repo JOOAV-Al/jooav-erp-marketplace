@@ -1,15 +1,30 @@
 /**
- * Optimistic cart mutations for the marketplace.
+ * Serialized optimistic cart mutations for the marketplace.
  *
- * The cart is a DRAFT order on the server. Every cart action now:
- *  1. patches the cached `["order-details", orderNumber]` entry instantly, so
- *     the UI (card highlight, navbar count, drawer, checkout) reacts on click;
- *  2. syncs to the API in the background and replaces the local entry with the
- *     server's authoritative order (no follow-up GET needed).
+ * The cart is a DRAFT order on the server. Every cart action:
+ *  1. waits for its turn behind any in-flight cart action (one shared
+ *     TanStack mutation scope), then patches the cached
+ *     `["order-details", orderNumber]` entry so the UI (card highlight,
+ *     navbar count, drawer, checkout) reacts immediately;
+ *  2. syncs to the API and replaces the local entry with the server's
+ *     authoritative order (no follow-up GET needed).
  *
- * Failures roll back to the pre-click snapshot and surface an error toast.
- * All cart mutations share one TanStack mutation scope so they execute in
- * order (add -> qty -> remove) and can never interleave optimistic states.
+ * Patches run inside `mutationFn`, never `onMutate`: TanStack calls
+ * `onMutate` as soon as a mutation is queued — even while the mutation is
+ * still paused behind an older one — so patches applied there interleave
+ * with older requests. An earlier response settling would then wipe a newer
+ * queued patch (the stepper bouncing back, or a just-re-added item
+ * disappearing). Inside `mutationFn` the patch is applied exactly when the
+ * request is about to fire, so every snapshot (for rollback) and every patch
+ * is taken against a cache that already reflects all earlier actions.
+ *
+ * Item identity is resolved here too, at execution time: items can be
+ * optimistically created with `optimistic-*` ids the API never saw, so
+ * UPDATE/REMOVE resolve the live item id from the cache by `productId`
+ * instead of trusting an id captured at click time. Actions that no longer
+ * apply (item gone, add already satisfied) are skipped silently.
+ *
+ * Failures roll back to the pre-request snapshot and surface an error toast.
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDispatch, useStore } from "react-redux";
@@ -17,14 +32,8 @@ import { toast } from "sonner";
 import { api, CustomAxiosRequestConfig } from "@/lib/api/axiosInstance";
 import { updateCartNumber } from "@/redux/slices/authSlice";
 import { RootState } from "@/redux/store";
-import type {
-  MutationResponse,
-} from "@/interfaces/general";
-import type {
-  Order,
-  OrderItem,
-  Product,
-} from "@/features/marketplace/types";
+import type { MutationResponse } from "@/interfaces/general";
+import type { Order, OrderItem, Product } from "@/features/marketplace/types";
 
 const CART_SCOPE = "cart";
 
@@ -42,10 +51,8 @@ export interface OrderDetailsCache {
 export const orderDetailsKey = (orderNumber: string) =>
   ["order-details", orderNumber] as const;
 
-interface CartOptimisticContext {
-  key: ReturnType<typeof orderDetailsKey>;
-  previous?: OrderDetailsCache;
-}
+type OrderKey = ReturnType<typeof orderDetailsKey>;
+type CartQueryClient = ReturnType<typeof useQueryClient>;
 
 export interface CartProductInput {
   id: string;
@@ -152,24 +159,52 @@ function notifyCartError(error: unknown) {
   });
 }
 
-function rollbackCart(
-  queryClient: ReturnType<typeof useQueryClient>,
-  error: unknown,
-  context: CartOptimisticContext | undefined,
+/** Resolves a cart item by stable product identity, never by its id. */
+function findCartItem(
+  order: Order | undefined,
+  productId: string,
+): OrderItem | undefined {
+  return order?.items?.find(
+    (item) => item.productId === productId || item.product?.id === productId,
+  );
+}
+
+/**
+ * Applies the optimistic patch for the mutation that is executing right now.
+ * Runs only from `mutationFn`, after all earlier cart mutations settled, so
+ * it can never overwrite a newer patch (and vice versa).
+ */
+function patchCart(
+  queryClient: CartQueryClient,
+  key: OrderKey,
+  previous: OrderDetailsCache | undefined,
+  patch: (order: Order) => Order,
 ) {
-  if (context?.previous !== undefined) {
-    queryClient.setQueryData(context.key, context.previous);
+  if (!previous?.data) return;
+  queryClient.setQueryData<OrderDetailsCache>(key, {
+    ...previous,
+    data: patch(previous.data),
+  });
+}
+
+/** Restores the snapshot taken at this mutation's execution start. */
+function restoreCart(
+  queryClient: CartQueryClient,
+  key: OrderKey,
+  previous: OrderDetailsCache | undefined,
+) {
+  if (previous !== undefined) {
+    queryClient.setQueryData(key, previous);
   }
-  notifyCartError(error);
 }
 
 function settleCart(
-  queryClient: ReturnType<typeof useQueryClient>,
-  context: CartOptimisticContext | undefined,
+  queryClient: CartQueryClient,
+  key: OrderKey,
   order?: Order,
 ) {
-  if (order && context?.key) {
-    queryClient.setQueryData<OrderDetailsCache>(context.key, {
+  if (order) {
+    queryClient.setQueryData<OrderDetailsCache>(key, {
       success: true,
       data: order,
     });
@@ -186,6 +221,11 @@ export interface AddToCartInput {
   quantity: number;
 }
 
+type AddToCartResult =
+  | { created: true; order?: Order }
+  | { created: false; key: OrderKey; order?: Order }
+  | { created: false; skipped: true };
+
 export const useAddToCart = () => {
   const queryClient = useQueryClient();
   const dispatch = useDispatch();
@@ -193,7 +233,10 @@ export const useAddToCart = () => {
 
   return useMutation({
     scope: { id: CART_SCOPE },
-    mutationFn: async ({ product, quantity }: AddToCartInput) => {
+    mutationFn: async ({
+      product,
+      quantity,
+    }: AddToCartInput): Promise<AddToCartResult> => {
       // Resolve the live draft at execution time: a queued add that started
       // before a draft existed must attach to the draft the first add created.
       const orderNumber = store.getState().auth.cartDraftNumber;
@@ -203,46 +246,55 @@ export const useAddToCart = () => {
           { items: [{ productId: product.id, quantity }] },
           silentRequest,
         );
-        return { created: true as const, order: res.data?.data?.order };
+        return { created: true, order: res.data?.data?.order };
       }
-      const res = await api.patch<MutationResponse<{ order: Order }>>(
-        `/orders/${orderNumber}`,
-        { item: { action: "ADD", productId: product.id, quantity } },
-        silentRequest,
-      );
-      return { created: false as const, order: res.data?.data?.order };
-    },
-    onMutate: async ({ product, quantity }: AddToCartInput) => {
-      const orderNumber = store.getState().auth.cartDraftNumber;
-      if (!orderNumber) return undefined;
+
       const key = orderDetailsKey(orderNumber);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<OrderDetailsCache>(key);
-      if (previous?.data) {
-        queryClient.setQueryData<OrderDetailsCache>(key, {
-          ...previous,
-          data: withAddedItem(
-            previous.data,
-            buildOptimisticCartItem(product, quantity),
-          ),
-        });
+      if (findCartItem(previous?.data, product.id)) {
+        // The product reached the cart while this add was queued (an earlier
+        // add in the same burst, or another surface). Treat the add as
+        // already satisfied: firing it would trip the server's duplicate
+        // guard and roll the cart back over the item.
+        return { created: false, skipped: true };
       }
-      return { key, previous };
-    },
-    onError: (error, _input, context) => rollbackCart(queryClient, error, context),
-    onSuccess: (result, _input, context) => {
-      if (result.created && result.order?.orderNumber) {
-        // First item ever: remember the new draft and seed its cache so the
-        // marketplace pages render it without a follow-up fetch.
-        dispatch(updateCartNumber({ orderNumber: result.order.orderNumber }));
-        queryClient.setQueryData<OrderDetailsCache>(
-          orderDetailsKey(result.order.orderNumber),
-          { success: true, data: result.order },
+
+      patchCart(queryClient, key, previous, (order) =>
+        withAddedItem(order, buildOptimisticCartItem(product, quantity)),
+      );
+
+      try {
+        const res = await api.patch<MutationResponse<{ order: Order }>>(
+          `/orders/${orderNumber}`,
+          { item: { action: "ADD", productId: product.id, quantity } },
+          silentRequest,
         );
-        queryClient.invalidateQueries({ queryKey: ["orders-stats"] });
+        return { created: false, key, order: res.data?.data?.order };
+      } catch (error) {
+        restoreCart(queryClient, key, previous);
+        notifyCartError(error);
+        throw error;
+      }
+    },
+    onSuccess: (result) => {
+      if (result.created) {
+        if (result.order?.orderNumber) {
+          // First item ever: remember the new draft and seed its cache so the
+          // marketplace pages render it without a follow-up fetch.
+          dispatch(
+            updateCartNumber({ orderNumber: result.order.orderNumber }),
+          );
+          queryClient.setQueryData<OrderDetailsCache>(
+            orderDetailsKey(result.order.orderNumber),
+            { success: true, data: result.order },
+          );
+          queryClient.invalidateQueries({ queryKey: ["orders-stats"] });
+        }
         return;
       }
-      settleCart(queryClient, context, result.order);
+      if ("skipped" in result) return;
+      settleCart(queryClient, result.key, result.order);
     },
   });
 };
@@ -251,7 +303,6 @@ export const useAddToCart = () => {
 
 export interface UpdateCartQuantityInput {
   orderNumber: string;
-  itemId: string;
   productId: string;
   quantity: number;
 }
@@ -263,35 +314,40 @@ export const useUpdateCartQuantity = () => {
     scope: { id: CART_SCOPE },
     mutationFn: async ({
       orderNumber,
-      itemId,
       productId,
-      quantity,
-    }: UpdateCartQuantityInput) => {
-      const res = await api.patch<MutationResponse<{ order: Order }>>(
-        `/orders/${orderNumber}`,
-        { item: { action: "UPDATE", itemId, productId, quantity } },
-        silentRequest,
-      );
-      return res.data?.data?.order;
-    },
-    onMutate: async ({
-      orderNumber,
-      itemId,
       quantity,
     }: UpdateCartQuantityInput) => {
       const key = orderDetailsKey(orderNumber);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<OrderDetailsCache>(key);
-      if (previous?.data) {
-        queryClient.setQueryData<OrderDetailsCache>(key, {
-          ...previous,
-          data: withUpdatedItemQuantity(previous.data, itemId, quantity),
-        });
+      // Resolve the live item id now: click-time ids can still be
+      // `optimistic-*` placeholders the API has never seen.
+      const item = findCartItem(previous?.data, productId);
+      if (!item) {
+        // The item left the cart while the update was queued — nothing to do.
+        return undefined;
       }
-      return { key, previous };
+
+      patchCart(queryClient, key, previous, (order) =>
+        withUpdatedItemQuantity(order, item.id, quantity),
+      );
+
+      try {
+        const res = await api.patch<MutationResponse<{ order: Order }>>(
+          `/orders/${orderNumber}`,
+          { item: { action: "UPDATE", itemId: item.id, productId, quantity } },
+          silentRequest,
+        );
+        return { key, order: res.data?.data?.order };
+      } catch (error) {
+        restoreCart(queryClient, key, previous);
+        notifyCartError(error);
+        throw error;
+      }
     },
-    onError: (error, _input, context) => rollbackCart(queryClient, error, context),
-    onSuccess: (order, _input, context) => settleCart(queryClient, context, order),
+    onSuccess: (result) => {
+      if (result) settleCart(queryClient, result.key, result.order);
+    },
   });
 };
 
@@ -299,8 +355,7 @@ export const useUpdateCartQuantity = () => {
 
 export interface RemoveCartItemInput {
   orderNumber: string;
-  itemId: string;
-  productId?: string;
+  productId: string;
 }
 
 export const useRemoveCartItem = () => {
@@ -308,31 +363,35 @@ export const useRemoveCartItem = () => {
 
   return useMutation({
     scope: { id: CART_SCOPE },
-    mutationFn: async ({
-      orderNumber,
-      itemId,
-      productId,
-    }: RemoveCartItemInput) => {
-      const res = await api.patch<MutationResponse<{ order: Order }>>(
-        `/orders/${orderNumber}`,
-        { item: { action: "REMOVE", itemId, productId } },
-        silentRequest,
-      );
-      return res.data?.data?.order;
-    },
-    onMutate: async ({ orderNumber, itemId }: RemoveCartItemInput) => {
+    mutationFn: async ({ orderNumber, productId }: RemoveCartItemInput) => {
       const key = orderDetailsKey(orderNumber);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<OrderDetailsCache>(key);
-      if (previous?.data) {
-        queryClient.setQueryData<OrderDetailsCache>(key, {
-          ...previous,
-          data: withRemovedItem(previous.data, itemId),
-        });
+      const item = findCartItem(previous?.data, productId);
+      if (!item) {
+        // Already gone (double click, or the add that created it failed).
+        return undefined;
       }
-      return { key, previous };
+
+      patchCart(queryClient, key, previous, (order) =>
+        withRemovedItem(order, item.id),
+      );
+
+      try {
+        const res = await api.patch<MutationResponse<{ order: Order }>>(
+          `/orders/${orderNumber}`,
+          { item: { action: "REMOVE", itemId: item.id, productId } },
+          silentRequest,
+        );
+        return { key, order: res.data?.data?.order };
+      } catch (error) {
+        restoreCart(queryClient, key, previous);
+        notifyCartError(error);
+        throw error;
+      }
     },
-    onError: (error, _input, context) => rollbackCart(queryClient, error, context),
-    onSuccess: (order, _input, context) => settleCart(queryClient, context, order),
+    onSuccess: (result) => {
+      if (result) settleCart(queryClient, result.key, result.order);
+    },
   });
 };

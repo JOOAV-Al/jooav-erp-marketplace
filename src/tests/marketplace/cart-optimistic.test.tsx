@@ -11,6 +11,8 @@ import {
   OrderDetailsCache,
   orderDetailsKey,
   useAddToCart,
+  useRemoveCartItem,
+  useUpdateCartQuantity,
   withAddedItem,
   withRemovedItem,
   withUpdatedItemQuantity,
@@ -86,6 +88,26 @@ const cachedOrder = (
   orderNumber: string,
 ): OrderDetailsCache | undefined =>
   queryClient.getQueryData<OrderDetailsCache>(orderDetailsKey(orderNumber));
+
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+const patchResponse = (order: Order) => ({
+  data: { success: true, message: "ok", data: { order } },
+});
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -312,5 +334,428 @@ describe("useAddToCart", () => {
       { items: [{ productId: "prod-1", quantity: 10 }] },
       { noToast: true },
     );
+  });
+});
+
+describe("cart mutation queue", () => {
+  const addInput = (productId: string, quantity = 10) => ({
+    product: { id: productId, name: `Product ${productId}`, price: 500 },
+    quantity,
+  });
+
+  it("patches a queued update only when its turn arrives", async () => {
+    const { queryClient, wrapper } = createHarness("DRAFT-1");
+    queryClient.setQueryData(orderDetailsKey("DRAFT-1"), {
+      success: true,
+      data: makeOrder(),
+    });
+
+    const addGate = deferred<unknown>();
+    (api.patch as jest.Mock).mockImplementation(() => addGate.promise);
+
+    const { result } = renderHook(
+      () => ({ add: useAddToCart(), update: useUpdateCartQuantity() }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      result.current.add.mutate(addInput("prod-2"));
+    });
+    // The add is in flight and shows its optimistic item.
+    await waitFor(() => {
+      expect(cachedOrder(queryClient, "DRAFT-1")?.data.items).toHaveLength(2);
+    });
+
+    await act(async () => {
+      result.current.update.mutate({
+        orderNumber: "DRAFT-1",
+        productId: "prod-1",
+        quantity: 20,
+      });
+    });
+
+    // Queued behind the add: no patch, no request, cache untouched.
+    expect(cachedOrder(queryClient, "DRAFT-1")?.data.items[0].quantity).toBe(
+      10,
+    );
+    expect(api.patch).toHaveBeenCalledTimes(1);
+
+    const updateGate = deferred<unknown>();
+    (api.patch as jest.Mock).mockImplementationOnce(() => updateGate.promise);
+
+    const serverAfterAdd = makeOrder({
+      items: [
+        makeItem(),
+        makeItem({
+          id: "item-2",
+          productId: "prod-2",
+          unitPrice: "500",
+          lineTotal: "5000",
+        }),
+      ],
+      subtotal: "6000",
+      totalAmount: "6000",
+    });
+    await act(async () => {
+      addGate.resolve(patchResponse(serverAfterAdd));
+    });
+
+    // Now the update executes: it patches against the settled order and sends
+    // the item id resolved at execution time.
+    await waitFor(() => {
+      expect(cachedOrder(queryClient, "DRAFT-1")?.data.items[0].quantity).toBe(
+        20,
+      );
+    });
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledTimes(2);
+    });
+    expect(api.patch).toHaveBeenLastCalledWith(
+      "/orders/DRAFT-1",
+      {
+        item: {
+          action: "UPDATE",
+          itemId: "item-1",
+          productId: "prod-1",
+          quantity: 20,
+        },
+      },
+      { noToast: true },
+    );
+    // The item added by the earlier mutation survived the settle.
+    expect(cachedOrder(queryClient, "DRAFT-1")?.data.items).toHaveLength(2);
+
+    await act(async () => {
+      updateGate.resolve(
+        patchResponse(
+          makeOrder({
+            items: [
+              makeItem({ quantity: 20, lineTotal: "2000" }),
+              makeItem({
+                id: "item-2",
+                productId: "prod-2",
+                unitPrice: "500",
+                lineTotal: "5000",
+              }),
+            ],
+            subtotal: "7000",
+            totalAmount: "7000",
+          }),
+        ),
+      );
+    });
+
+    await waitFor(() => {
+      expect(cachedOrder(queryClient, "DRAFT-1")?.data.subtotal).toBe("7000");
+    });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("resolves a just-added item's live id and never sends optimistic ids", async () => {
+    const { queryClient, wrapper } = createHarness("DRAFT-1");
+    queryClient.setQueryData(orderDetailsKey("DRAFT-1"), {
+      success: true,
+      data: makeOrder(),
+    });
+
+    const addGate = deferred<unknown>();
+    (api.patch as jest.Mock).mockImplementation(() => addGate.promise);
+
+    const { result } = renderHook(
+      () => ({ add: useAddToCart(), update: useUpdateCartQuantity() }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      result.current.add.mutate(addInput("prod-2"));
+    });
+    // The visible item is still the optimistic placeholder.
+    await waitFor(() => {
+      expect(cachedOrder(queryClient, "DRAFT-1")?.data.items[1]?.id).toBe(
+        "optimistic-prod-2",
+      );
+    });
+
+    // The user steps the quantity while the add is still in flight.
+    await act(async () => {
+      result.current.update.mutate({
+        orderNumber: "DRAFT-1",
+        productId: "prod-2",
+        quantity: 15,
+      });
+    });
+
+    const updateGate = deferred<unknown>();
+    (api.patch as jest.Mock).mockImplementationOnce(() => updateGate.promise);
+
+    const serverAfterAdd = makeOrder({
+      items: [
+        makeItem(),
+        makeItem({
+          id: "item-2-real",
+          productId: "prod-2",
+          unitPrice: "500",
+          lineTotal: "5000",
+        }),
+      ],
+      subtotal: "6000",
+      totalAmount: "6000",
+    });
+    await act(async () => {
+      addGate.resolve(patchResponse(serverAfterAdd));
+    });
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledTimes(2);
+    });
+    expect(api.patch).toHaveBeenLastCalledWith(
+      "/orders/DRAFT-1",
+      {
+        item: {
+          action: "UPDATE",
+          itemId: "item-2-real",
+          productId: "prod-2",
+          quantity: 15,
+        },
+      },
+      { noToast: true },
+    );
+    expect(
+      JSON.stringify((api.patch as jest.Mock).mock.calls),
+    ).not.toContain("optimistic-");
+    expect(cachedOrder(queryClient, "DRAFT-1")?.data.items[1].quantity).toBe(
+      15,
+    );
+
+    await act(async () => {
+      updateGate.resolve(
+        patchResponse(
+          makeOrder({
+            items: [
+              makeItem(),
+              makeItem({
+                id: "item-2-real",
+                productId: "prod-2",
+                quantity: 15,
+                unitPrice: "500",
+                lineTotal: "7500",
+              }),
+            ],
+            subtotal: "8500",
+            totalAmount: "8500",
+          }),
+        ),
+      );
+    });
+    await waitFor(() => {
+      expect(cachedOrder(queryClient, "DRAFT-1")?.data.subtotal).toBe("8500");
+    });
+  });
+
+  it("keeps a product that was re-added while its remove was in flight", async () => {
+    const { queryClient, wrapper } = createHarness("DRAFT-1");
+    queryClient.setQueryData(orderDetailsKey("DRAFT-1"), {
+      success: true,
+      data: makeOrder(),
+    });
+
+    const removeGate = deferred<unknown>();
+    (api.patch as jest.Mock).mockImplementation(() => removeGate.promise);
+
+    const { result } = renderHook(
+      () => ({ add: useAddToCart(), remove: useRemoveCartItem() }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      result.current.remove.mutate({
+        orderNumber: "DRAFT-1",
+        productId: "prod-1",
+      });
+    });
+    await waitFor(() => {
+      expect(cachedOrder(queryClient, "DRAFT-1")?.data.items).toHaveLength(0);
+    });
+
+    // Re-add the product immediately, while the remove is still in flight.
+    await act(async () => {
+      result.current.add.mutate(addInput("prod-1"));
+    });
+    expect(api.patch).toHaveBeenCalledTimes(1);
+    expect(cachedOrder(queryClient, "DRAFT-1")?.data.items).toHaveLength(0);
+
+    const addGate = deferred<unknown>();
+    (api.patch as jest.Mock).mockImplementationOnce(() => addGate.promise);
+
+    // The remove settles with the item gone — the queued add must survive it.
+    await act(async () => {
+      removeGate.resolve(
+        patchResponse(
+          makeOrder({ items: [], subtotal: "0", totalAmount: "0" }),
+        ),
+      );
+    });
+
+    await waitFor(() => {
+      expect(cachedOrder(queryClient, "DRAFT-1")?.data.items).toHaveLength(1);
+    });
+    expect(cachedOrder(queryClient, "DRAFT-1")?.data.items[0].id).toBe(
+      "optimistic-prod-1",
+    );
+
+    await act(async () => {
+      addGate.resolve(patchResponse(makeOrder()));
+    });
+    await waitFor(() => {
+      expect(cachedOrder(queryClient, "DRAFT-1")?.data.items[0].id).toBe(
+        "item-1",
+      );
+    });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("rolls back to the snapshot taken when the update executed, not when it was clicked", async () => {
+    const { queryClient, wrapper } = createHarness("DRAFT-1");
+    queryClient.setQueryData(orderDetailsKey("DRAFT-1"), {
+      success: true,
+      data: makeOrder(),
+    });
+
+    const addGate = deferred<unknown>();
+    (api.patch as jest.Mock).mockImplementation(() => addGate.promise);
+
+    const { result } = renderHook(
+      () => ({ add: useAddToCart(), update: useUpdateCartQuantity() }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      result.current.add.mutate(addInput("prod-2"));
+    });
+    await act(async () => {
+      result.current.update.mutate({
+        orderNumber: "DRAFT-1",
+        productId: "prod-1",
+        quantity: 20,
+      });
+    });
+
+    const updateGate = deferred<unknown>();
+    (api.patch as jest.Mock).mockImplementationOnce(() => updateGate.promise);
+
+    const serverAfterAdd = makeOrder({
+      items: [
+        makeItem(),
+        makeItem({
+          id: "item-2",
+          productId: "prod-2",
+          unitPrice: "500",
+          lineTotal: "5000",
+        }),
+      ],
+      subtotal: "6000",
+      totalAmount: "6000",
+    });
+    await act(async () => {
+      addGate.resolve(patchResponse(serverAfterAdd));
+    });
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      updateGate.reject({
+        response: {
+          data: {
+            message:
+              "Insufficient stock for product Product two. Available: 12, Requested: 20",
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(cachedOrder(queryClient, "DRAFT-1")?.data.items[0].quantity).toBe(
+        10,
+      );
+    });
+    // The item added while the update was queued must survive the rollback —
+    // a click-time snapshot would have dropped it.
+    expect(cachedOrder(queryClient, "DRAFT-1")?.data.items).toHaveLength(2);
+    expect(cachedOrder(queryClient, "DRAFT-1")?.data.items[1].id).toBe("item-2");
+    expect(toast.error).toHaveBeenCalled();
+  });
+});
+
+describe("cart mutation guards", () => {
+  it("skips an add when the product is already in the cart", async () => {
+    const { queryClient, wrapper } = createHarness("DRAFT-1");
+    queryClient.setQueryData(orderDetailsKey("DRAFT-1"), {
+      success: true,
+      data: makeOrder(),
+    });
+
+    const { result } = renderHook(() => useAddToCart(), { wrapper });
+
+    await act(async () => {
+      result.current.mutate({
+        product: { id: "prod-1", name: "Product one", price: 100 },
+        quantity: 10,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+    expect(result.current.data).toEqual({ created: false, skipped: true });
+    expect(api.patch).not.toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalled();
+    expect(cachedOrder(queryClient, "DRAFT-1")?.data.items).toHaveLength(1);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("skips an update for an item that is no longer in the cart", async () => {
+    const { queryClient, wrapper } = createHarness("DRAFT-1");
+    queryClient.setQueryData(orderDetailsKey("DRAFT-1"), {
+      success: true,
+      data: makeOrder(),
+    });
+
+    const { result } = renderHook(() => useUpdateCartQuantity(), { wrapper });
+
+    await act(async () => {
+      result.current.mutate({
+        orderNumber: "DRAFT-1",
+        productId: "prod-9",
+        quantity: 20,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+    expect(api.patch).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(cachedOrder(queryClient, "DRAFT-1")?.data.items).toHaveLength(1);
+  });
+
+  it("skips a remove for an item that is no longer in the cart", async () => {
+    const { queryClient, wrapper } = createHarness("DRAFT-1");
+    queryClient.setQueryData(orderDetailsKey("DRAFT-1"), {
+      success: true,
+      data: makeOrder(),
+    });
+
+    const { result } = renderHook(() => useRemoveCartItem(), { wrapper });
+
+    await act(async () => {
+      result.current.mutate({ orderNumber: "DRAFT-1", productId: "prod-9" });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+    expect(api.patch).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });

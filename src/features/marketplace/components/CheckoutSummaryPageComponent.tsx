@@ -71,16 +71,13 @@ export default function CheckoutSummaryPageComponent() {
   const allowedPreviousCheckoutStatus = ["DRAFT", "PENDING_PAYMENT"]
 
   const handleRemoveItem = (item: OrderItem) => {
-    if (!item) return;
+    const productId = item?.productId ?? item?.product?.id;
+    if (!productId) return;
     const orderNumber = userDraftCart?.orderNumber ?? selectedOrderNumber;
     if (!orderNumber) return;
     // Optimistic: the item leaves the list on click and the draft order syncs
     // in the background.
-    removeCartItem({
-      orderNumber,
-      itemId: item.id,
-      productId: item.product?.id,
-    });
+    removeCartItem({ orderNumber, productId });
   };
 
   const handleUpdateAddress = async () => {
