@@ -21,7 +21,10 @@ interface QuantityStepperProps {
  * Local state keeps clicks instant; the API commit is debounced so a burst of
  * clicks coalesces into a single request instead of racing itself. The server
  * value stays the source of truth: when `quantity` changes (settle or
- * rollback) the display re-syncs, reverting the UI if the request failed.
+ * rollback) the display re-syncs, reverting the UI if the request failed —
+ * except when the incoming value is the echo of our own last commit while a
+ * newer step is still waiting to be sent, in which case the newer intent is
+ * kept instead of being stomped by the older value.
  */
 export default function QuantityStepper({
   quantity,
@@ -31,6 +34,9 @@ export default function QuantityStepper({
 }: QuantityStepperProps) {
   const [value, setValue] = useState(quantity);
   const [syncedQuantity, setSyncedQuantity] = useState(quantity);
+  // Last value handed to onCommit; the render-phase check below compares
+  // incoming server values against it to spot its own echo.
+  const [lastSent, setLastSent] = useState(quantity);
   const lastSentRef = useRef(quantity);
   const pendingRef = useRef<number | null>(null);
   const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -42,15 +48,21 @@ export default function QuantityStepper({
 
   // Adopt the server value whenever it changes (settle or rollback). Adjusting
   // state during render (React docs, "adjusting state when a prop changes")
-  // resets the display in the same pass and drops any pending local burst.
+  // resets the display in the same pass. The one exception: an echo of our own
+  // last commit — the settle of an older value must not pull back a newer
+  // local step that has not been sent yet.
   if (syncedQuantity !== quantity) {
     setSyncedQuantity(quantity);
-    setValue(quantity);
+    if (quantity !== lastSent) {
+      setValue(quantity);
+    }
   }
 
-  // Mirror the server value into the refs that guard the debounce: a change
-  // means the previous local burst is stale, so drop it.
+  // Mirror an adopted server value into the debounce guard and drop the burst
+  // it just made stale (refs only: a state update here would fight the
+  // render-phase adoption above). An echo of our own commit keeps the burst.
   useEffect(() => {
+    if (quantity === lastSentRef.current) return;
     lastSentRef.current = quantity;
     pendingRef.current = null;
     if (commitTimerRef.current) {
@@ -79,6 +91,7 @@ export default function QuantityStepper({
   const commit = (next: number) => {
     if (next === lastSentRef.current) return;
     lastSentRef.current = next;
+    setLastSent(next);
     onCommitRef.current(next);
   };
 

@@ -57,22 +57,15 @@ export default function MarketplaceNavbar() {
   const cartCount = userDraftOrder?.items?.length || 0;
 
   const handleRemoveItem = (item: OrderItem) => {
-    if (!item || !orderNumber) return;
-    removeCartItem({
-      orderNumber,
-      itemId: item.id,
-      productId: item.product?.id,
-    });
+    const productId = item?.productId ?? item?.product?.id;
+    if (!productId || !orderNumber) return;
+    removeCartItem({ orderNumber, productId });
   };
 
   const handleUpdateQuantity = (item: OrderItem, quantity: number) => {
-    if (!item || !orderNumber) return;
-    updateCartQuantity({
-      orderNumber,
-      itemId: item.id,
-      productId: item.productId,
-      quantity,
-    });
+    const productId = item?.productId ?? item?.product?.id;
+    if (!productId || !orderNumber) return;
+    updateCartQuantity({ orderNumber, productId, quantity });
   };
 
   const handleLogout = () => {

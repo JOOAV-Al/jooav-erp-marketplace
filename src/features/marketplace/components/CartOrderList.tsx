@@ -70,7 +70,7 @@ const CartOrderList = ({
 
               return (
                 <div
-                  key={item.id}
+                  key={item.productId ?? item.id}
                   // onClick={() => onOrderItemClick?.(item, order)}
                   className={`flex items-start gap-main py-4 transition-colors ${isLast ? "" : "border-b border-border-main"}`}
                 >

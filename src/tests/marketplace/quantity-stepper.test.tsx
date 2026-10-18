@@ -82,4 +82,33 @@ describe("QuantityStepper", () => {
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith(11);
   });
+
+  it("keeps a newer step while the echo of the previous commit settles", () => {
+    const onCommit = jest.fn();
+    const { rerender } = render(
+      <QuantityStepper quantity={10} onCommit={onCommit} />,
+    );
+
+    const plus = screen.getByRole("button", { name: "Increase quantity" });
+    fireEvent.click(plus);
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(onCommit).toHaveBeenCalledWith(11);
+
+    // A newer step lands while the commit for 11 is still in flight.
+    fireEvent.click(plus);
+    expect(screen.getByText("12")).toBeInTheDocument();
+
+    // The server settles to 11 (the echo of the previous commit): the newer
+    // step must survive and still be sent.
+    rerender(<QuantityStepper quantity={11} onCommit={onCommit} />);
+    expect(screen.getByText("12")).toBeInTheDocument();
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(onCommit).toHaveBeenCalledTimes(2);
+    expect(onCommit).toHaveBeenLastCalledWith(12);
+  });
 });
