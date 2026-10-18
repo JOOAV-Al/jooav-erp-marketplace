@@ -14,7 +14,10 @@ import Cookies from "js-cookie";
 import { cn, truncateText } from "@/lib/utils";
 import DashboardDrawer from "@/components/general/DashboardDrawer";
 import { useGetOrderDetails } from "@/features/marketplace/services/marketplace.api";
-import { useRemoveCartItem } from "@/features/marketplace/services/cart.api";
+import {
+  useRemoveCartItem,
+  useUpdateCartQuantity,
+} from "@/features/marketplace/services/cart.api";
 import { OrderItem } from "@/features/marketplace/types";
 import DrawerBoxContent from "@/components/general/DrawerBoxContent";
 import CartOrderList from "@/features/marketplace/components/CartOrderList";
@@ -48,6 +51,7 @@ export default function MarketplaceNavbar() {
   const [openLoginForm, setOpenLoginForm] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { mutate: removeCartItem } = useRemoveCartItem();
+  const { mutate: updateCartQuantity } = useUpdateCartQuantity();
 
   // Functions
   const cartCount = userDraftOrder?.items?.length || 0;
@@ -58,6 +62,16 @@ export default function MarketplaceNavbar() {
       orderNumber,
       itemId: item.id,
       productId: item.product?.id,
+    });
+  };
+
+  const handleUpdateQuantity = (item: OrderItem, quantity: number) => {
+    if (!item || !orderNumber) return;
+    updateCartQuantity({
+      orderNumber,
+      itemId: item.id,
+      productId: item.productId,
+      quantity,
     });
   };
 
@@ -387,6 +401,7 @@ export default function MarketplaceNavbar() {
                 orderNumber={orderNumber}
                 isPending={draftCartPending}
                 onRemoveItem={handleRemoveItem}
+                onUpdateQuantity={handleUpdateQuantity}
               />
             }
           />
