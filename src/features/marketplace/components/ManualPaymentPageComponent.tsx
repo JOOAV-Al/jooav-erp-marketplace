@@ -16,7 +16,7 @@ import {
 } from "@/features/marketplace/services/marketplace.api";
 
 const BACK_LINK_CLASS =
-  "inline-flex items-center h-8.5 font-medium text-[15px] leading-[1.2] tracking-[0.04em] text-body hover:text-primary mb-2 transition-colors border border-border-main table-tag bg-storey-foreground p-md rounded-md outline-none";
+  "inline-flex items-center w-fit h-8.5 font-medium text-[15px] leading-[1.2] tracking-[0.04em] text-body hover:text-primary mb-2 transition-colors border border-border-main table-tag bg-storey-foreground p-md rounded-md outline-none";
 
 export default function ManualPaymentPageComponent() {
   const params = useSearchParams();

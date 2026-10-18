@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Edit3, X } from "lucide-react";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import {
   useGetOrderDetails,
   useGetPaymentSettings,
@@ -21,7 +21,6 @@ import { CreateOrderPayload, OrderItem } from "@/features/marketplace/types";
 import OrderCard from "@/features/marketplace/components/OrderCard";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
-import { updateCartNumber } from "@/redux/slices/authSlice";
 import EmptyState from "@/components/general/EmptyState";
 import { Spinner } from "@/components/ui/spinner";
 import CheckoutPageSkeleton from "@/features/marketplace/components/CheckoutPageSkeleton";
@@ -44,7 +43,6 @@ export default function CheckoutSummaryPageComponent() {
   const selectedOrderNumber = queryOrderNumber || draftCart;
 
   const router = useRouter();
-  const dispatch = useDispatch();
   const [showEditAddress, setShowEditAddress] = useState(false);
 
   const { data, isPending, refetch } = useGetOrderDetails({
@@ -120,13 +118,9 @@ export default function CheckoutSummaryPageComponent() {
           orderNumber: selectedOrderNumber,
         });
         if (manualRes.data.status !== "success") return;
-        dispatch(
-          updateCartNumber({
-            orderNumber:
-              manualRes.data.data?.order?.orderNumber ??
-              userDraftCart.orderNumber,
-          }),
-        );
+        // The draft cart was emptied in place (its items moved onto the new
+        // payment order) and stays the cart reference — refresh it so the
+        // navbar and drawer clear without a page refresh.
         refetch();
         router.push(
           `/dashboard/checkout/manual-payment?orderNumber=${
@@ -169,12 +163,9 @@ export default function CheckoutSummaryPageComponent() {
           });
 
     if (res.data.status === "success") {
-      dispatch(
-        updateCartNumber({
-          orderNumber:
-            res.data.data?.order?.orderNumber ?? userDraftCart?.orderNumber,
-        }),
-      );
+      // The draft cart was emptied in place (its items moved onto the new
+      // payment order) and stays the cart reference — refresh it so the
+      // navbar and drawer clear without a page refresh.
       router.push(
         `/dashboard/checkout/complete-payment?orderNumber=${res.data.data?.order?.orderNumber}`,
       );

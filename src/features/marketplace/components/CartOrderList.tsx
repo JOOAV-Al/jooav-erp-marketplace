@@ -10,11 +10,13 @@ import { useGetOrderDetails } from "@/features/marketplace/services/marketplace.
 import { Trash2, X } from "lucide-react";
 import EmptyState from "@/components/general/EmptyState";
 import OrderCardSkeleton from "@/features/marketplace/components/OrderCardSkeleton";
+import QuantityStepper from "@/features/marketplace/components/QuantityStepper";
 
 interface CartOrderListProps {
   order?: Order;
   orderNumber?: string;
   onRemoveItem?: (item: OrderItem) => void;
+  onUpdateQuantity?: (item: OrderItem, quantity: number) => void;
   isPending?: boolean;
 }
 
@@ -22,6 +24,7 @@ const CartOrderList = ({
   order,
   orderNumber,
   onRemoveItem,
+  onUpdateQuantity,
   isPending,
 }: CartOrderListProps) => {
   // console.log(order);
@@ -101,12 +104,21 @@ const CartOrderList = ({
                     </div>
 
                     <div className="flex flex-col gap-[8px]">
-                      <div className="flex justify-between border-b border-border-main py-sm gap-main">
-                        <span className="font-mono text-[12px] text-body-passive tracking-[0.08em] leading-[1.2]">
-                          QTY:{" "}
-                          <span className="text-body font-garantpro font-semibold text-[13px] tracking-[0.05em]">
-                            {item.quantity}
-                          </span>
+                      <div className="flex items-center justify-between border-b border-border-main py-sm gap-main">
+                        <span className="flex items-center gap-[6px] font-mono text-[12px] text-body-passive tracking-[0.08em] leading-[1.2]">
+                          QTY:
+                          {onUpdateQuantity ? (
+                            <QuantityStepper
+                              quantity={item.quantity}
+                              onCommit={(quantity) =>
+                                onUpdateQuantity(item, quantity)
+                              }
+                            />
+                          ) : (
+                            <span className="text-body font-garantpro font-semibold text-[13px] tracking-[0.05em]">
+                              {item.quantity}
+                            </span>
+                          )}
                         </span>
                         <span className="font-mono text-[12px] lg:place-self-center text-body-passive tracking-[0.08em] leading-[1.2]">
                           SIZE:{" "}
