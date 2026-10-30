@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MIN_ORDER_QUANTITY } from "../constants";
 
-/** Matches the product page's minimum order quantity rule. */
-const MIN_QUANTITY = 10;
 const COMMIT_DELAY_MS = 500;
 
 interface QuantityStepperProps {
@@ -29,7 +28,7 @@ interface QuantityStepperProps {
 export default function QuantityStepper({
   quantity,
   onCommit,
-  min = MIN_QUANTITY,
+  min = MIN_ORDER_QUANTITY,
   className,
 }: QuantityStepperProps) {
   const [value, setValue] = useState(quantity);

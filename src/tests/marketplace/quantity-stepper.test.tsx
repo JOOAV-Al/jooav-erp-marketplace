@@ -37,18 +37,34 @@ describe("QuantityStepper", () => {
 
   it("never steps below the minimum", () => {
     const onCommit = jest.fn();
-    render(<QuantityStepper quantity={10} onCommit={onCommit} />);
+    render(<QuantityStepper quantity={1} onCommit={onCommit} />);
 
     const minus = screen.getByRole("button", { name: "Decrease quantity" });
     expect(minus).toBeDisabled();
 
     fireEvent.click(minus);
-    expect(screen.getByText("10")).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
 
     act(() => {
       jest.advanceTimersByTime(500);
     });
     expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("steps down to the minimum from above it", () => {
+    const onCommit = jest.fn();
+    render(<QuantityStepper quantity={2} onCommit={onCommit} />);
+
+    const minus = screen.getByRole("button", { name: "Decrease quantity" });
+    expect(minus).not.toBeDisabled();
+
+    fireEvent.click(minus);
+    expect(screen.getByText("1")).toBeInTheDocument();
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(onCommit).toHaveBeenCalledWith(1);
   });
 
   it("re-syncs to the server quantity and drops the pending burst", () => {
