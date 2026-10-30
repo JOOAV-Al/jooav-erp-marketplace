@@ -24,6 +24,7 @@ import { Product } from "@/features/marketplace/types";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { MIN_ORDER_QUANTITY } from "@/features/marketplace/constants";
 
 function formatPrice(amount: number, currency = "NGN") {
   return new Intl.NumberFormat("en-NG", {
@@ -58,15 +59,14 @@ export default function ProductDetailPageComponent() {
     useUpdateDraftOrder();
 
   const [activeImage, setActiveImage] = useState(0);
-  const MIN_QUANTITY = 10;
   // const [qty, setQty] = useState(
   //   userDraftCart?.items?.find((i) => i?.product?.id === product?.id)
-  //     ?.quantity ?? MIN_QUANTITY,
+  //     ?.quantity ?? MIN_ORDER_QUANTITY,
   // );
   const [qty, setQty] = useState<string>(
     String(
       userDraftCart?.items?.find((i) => i?.product?.id === product?.id)
-        ?.quantity ?? MIN_QUANTITY,
+        ?.quantity ?? MIN_ORDER_QUANTITY,
     ),
   );
   const updateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -168,9 +168,9 @@ export default function ProductDetailPageComponent() {
     updateTimerRef.current = setTimeout(() => {
       const nextQty = Number(raw);
 
-      if (!raw || nextQty < MIN_QUANTITY) {
-        // setQty(String(MIN_QUANTITY));
-        toast(`Minimum quantity is ${MIN_QUANTITY}`);
+      if (!raw || nextQty < MIN_ORDER_QUANTITY) {
+        // setQty(String(MIN_ORDER_QUANTITY));
+        toast(`Minimum quantity is ${MIN_ORDER_QUANTITY}`);
         return;
       }
 

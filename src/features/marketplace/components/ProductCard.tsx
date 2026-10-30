@@ -62,7 +62,7 @@ export default function ProductCard({
       productId: product.id,
       name: product.name,
       price: product?.price,
-      quantity: 10,
+      quantity: 1,
       size: product?.size,
       type: product?.type,
       currency: 'NGN',
@@ -92,7 +92,7 @@ export default function ProductCard({
             packSizeName: product.size,
             packTypeName: product.type,
           },
-          quantity: 10,
+          quantity: 1,
         },
         { onSettled: () => setJustAdded(false) },
       );
